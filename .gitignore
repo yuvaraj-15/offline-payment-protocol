@@ -1,0 +1,21 @@
+# Bank secrets
+bank/bank_private_key.pem
+bank/ledger.db
+bank/public_key.pem
+
+# Python / Caches
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+
+# Environment / IDE
+.agent/
+.vscode/
+.idea/
+.pyre/
+*.swp
+.DS_Store
+Thumbs.db
+offline_payment_protocol.egg-info/
