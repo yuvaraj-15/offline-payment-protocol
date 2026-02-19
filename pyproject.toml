@@ -1,0 +1,12 @@
+[project]
+name = "offline-payment-protocol"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = ["cryptography"]
+
+[tool.setuptools.packages.find]
+include = ["shared*", "bank*"]
+
+[tool.pyre]
+source_directories = ["."]
+search_path = ["."]
