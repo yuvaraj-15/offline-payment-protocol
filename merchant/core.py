@@ -6,6 +6,7 @@ Strictly adheres to MASTER_SPEC.md.
 import time
 import json
 import os
+from typing import Any
 
 from cryptography.hazmat.primitives import serialization  # type: ignore[import]
 
@@ -13,7 +14,7 @@ from shared.models import Token, TransactionPackage  # type: ignore[import]
 from shared.crypto import canonical_hash, verify_signature  # type: ignore[import]
 from merchant import database  # type: ignore[import]
 
-def _load_bank_public_key() -> any:
+def _load_bank_public_key() -> Any:
     """Load the Bank's public key for signature verification."""
     # In a real app, this is hardcoded or trusted-pinned.
     # Here we load from file (exported by Bank).

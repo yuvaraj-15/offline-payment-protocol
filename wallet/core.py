@@ -60,7 +60,7 @@ def get_or_create_identity(password: str) -> str:
         database.init_db()
     
     # Create new
-    new_id = f"Buyer-{uuid.uuid4().hex[:8]}"
+    new_id = f"Buyer-{uuid.uuid4().hex[:8]}"  # type: ignore[index]
     database.save_config("buyer_id", new_id, key)
     return new_id
 
@@ -80,7 +80,7 @@ def preload_funds(password: str, amount: int) -> int:
     # We need the Bank's private key.
     # In a real system, this is an HTTPS request.
     try:
-        from bank import database as bank_db
+        from bank import database as bank_db  # type: ignore[import]
         # Ensure bank DB exists for simulation
         bank_db.init_db()
         # Ensure user has funds (Simulated Deposit)

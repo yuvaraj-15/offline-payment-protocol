@@ -68,7 +68,7 @@ def main():
                     print(f"- {r['transaction_id'][:8]}... | Amount: {r['total_amount']} | Status: {r['status']}")
 
         elif args.command == "settle":
-            from merchant import settlement
+            from merchant import settlement  # type: ignore[import]
             count = settlement.settle_pending_transactions()
             print(f"[SUCCESS] Settled {count} transactions with Bank.")
 

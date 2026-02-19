@@ -5,8 +5,9 @@ requires-python = ">=3.10"
 dependencies = ["cryptography"]
 
 [tool.setuptools.packages.find]
-include = ["shared*", "bank*"]
+include = ["shared*", "bank*", "merchant*", "wallet*"]
 
 [tool.pyre]
 source_directories = ["."]
 search_path = ["."]
+python_version = "3.13"

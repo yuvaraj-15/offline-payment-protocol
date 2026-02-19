@@ -4,12 +4,12 @@ Simulates uploading offline transactions to the Bank.
 Phase 3.4
 """
 import time
-from merchant import database
-from shared.models import TransactionPackage, Token # type: ignore[import]
-from shared.crypto import derive_owner_hash # type: ignore[import]
-from bank import settlement as bank_settlement # type: ignore[import]
+from merchant import database  # type: ignore[import]
+from shared.models import TransactionPackage, Token  # type: ignore[import]
+from shared.crypto import derive_owner_hash  # type: ignore[import]
+from bank import settlement as bank_settlement  # type: ignore[import]
 # We need bank public key to verify (already loaded in core)
-from merchant.core import _load_bank_public_key
+from merchant.core import _load_bank_public_key  # type: ignore[import]
 
 def settle_pending_transactions() -> int:
     """Upload all PENDING transactions to Bank.
@@ -23,7 +23,7 @@ def settle_pending_transactions() -> int:
     # Wait, settle_transaction signature in bank/settlement.py:
     # def settle_transaction(bank_public_key, transaction_package: TransactionPackage) -> dict:
     
-    settled_count = 0
+    settled_count: int = 0
     with database.get_db() as conn:
         # Get PENDING txs
         txs = conn.execute("SELECT * FROM transactions WHERE status = 'PENDING'").fetchall()
@@ -70,7 +70,7 @@ def settle_pending_transactions() -> int:
                 # Update Local Status
                 conn.execute("UPDATE transactions SET status = 'SETTLED' WHERE transaction_id = ?", (tx_id,))
                 conn.execute("UPDATE received_tokens SET status = 'SETTLED' WHERE transaction_id = ?", (tx_id,))
-                settled_count += 1
+                settled_count += 1  # type: ignore[operator]
                 
             except Exception as e:
                 print(f"Settlement Failed for {tx_id}: {e}")

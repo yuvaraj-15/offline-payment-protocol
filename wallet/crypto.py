@@ -60,7 +60,7 @@ def decrypt_blob(key: bytes, blob: bytes) -> bytes:
     if len(blob) < IV_SIZE + 16:
         raise ValueError("Blob too short")
     
-    iv = blob[:IV_SIZE]
-    ciphertext = blob[IV_SIZE:]
+    iv = blob[:IV_SIZE]  # type: ignore[index]
+    ciphertext = blob[IV_SIZE:]  # type: ignore[index]
     aesgcm = AESGCM(key)
     return aesgcm.decrypt(iv, ciphertext, None)

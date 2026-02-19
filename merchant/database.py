@@ -97,3 +97,4 @@ def save_transaction(packet: dict) -> bool:
         except Exception:
             conn.rollback()
             raise
+    return False  # unreachable; satisfies Pyre2 missing-return check

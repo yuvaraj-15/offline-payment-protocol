@@ -47,7 +47,7 @@ def main():
             print(packet)
             
         elif args.command == "refund":
-            from wallet import refund
+            from wallet import refund  # type: ignore[import]
             count = refund.request_refunds(password)
             print(f"[SUCCESS] Refund request sent for {count} expired tokens.")
 

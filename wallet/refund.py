@@ -4,9 +4,9 @@ Simulates requesting refunds for expired tokens.
 Phase 3.4
 """
 import time
-from wallet import database
-from wallet.core import _get_master_key, get_or_create_identity
-from bank import refund as bank_refund # type: ignore[import]
+from wallet import database  # type: ignore[import]
+from wallet.core import _get_master_key, get_or_create_identity  # type: ignore[import]
+from bank import refund as bank_refund  # type: ignore[import]
 
 def request_refunds(password: str) -> int:
     """Find expired/unspent tokens and request refund from Bank.
@@ -41,7 +41,7 @@ def request_refunds(password: str) -> int:
     tokens = database.list_unspent_tokens(key)
     now = int(time.time())
     
-    refund_count = 0
+    refund_count: int = 0
     expired_ids = []
     
     for t in tokens:
@@ -51,7 +51,7 @@ def request_refunds(password: str) -> int:
                 status = bank_refund.request_refund(buyer_id, t.token_id)
                 if status == "REFUNDED":
                     expired_ids.append(t.token_id)
-                    refund_count += 1
+                    refund_count += 1  # type: ignore[operator]
                 elif status == "FAILED_SPENT":
                     # Mark as SPENT locally if not already
                     pass

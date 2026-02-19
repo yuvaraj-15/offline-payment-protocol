@@ -117,6 +117,7 @@ def expire_stale_tokens() -> int:
         )
         conn.execute("COMMIT")
         return cursor.rowcount
+    return 0  # unreachable; satisfies Pyre2 missing-return check
 
 
 def list_unspent_tokens(master_key: bytes) -> List[Token]:
@@ -177,3 +178,4 @@ def mark_tokens_spent(token_ids: List[str]) -> bool:
             except Exception:
                 pass
             return False
+    return False  # unreachable; satisfies Pyre2 missing-return check
