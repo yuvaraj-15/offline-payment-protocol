@@ -55,6 +55,8 @@ class TestRefund(unittest.TestCase):
             merchant_id="Merchant",
             tokens=[self.tokens[0]],
             transaction_timestamp=int(_time.time()),
+            requested_amount=self.tokens[0].denomination,
+            buyer_display_name="Alice"
         )
         settle_transaction(self.pub, tx)
         with patch("bank.refund.time") as mt:

@@ -6,7 +6,7 @@ Strictly adheres to MASTER_SPEC.md.
 import uuid
 import json
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import hashlib
 
 from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
@@ -14,7 +14,8 @@ from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
 from shared.models import Token  # type: ignore[import]
 from shared.crypto import derive_owner_hash  # type: ignore[import]
 from wallet import crypto, database  # type: ignore[import]
-from bank import issuance, main as bank_main  # type: ignore[import]
+from bank import issuance  # type: ignore[import]
+from demos import bank_demo as bank_main
 
 # Constants
 EXPIRY_BUFFER_SECONDS = 60  # Buffer to accidental expiry during transfer
@@ -47,22 +48,50 @@ def _get_master_key(password: str) -> bytes:
     return key
 
 
-def get_or_create_identity(password: str) -> str:
-    """Get the Buyer ID (Simulated Identity)."""
+def get_or_create_identity(password: str, display_name: Optional[str] = None) -> str:
+    """Get or create the Buyer ID for this wallet.
+
+    Lifecycle rules:
+    - If no .salt file exists: wallet is new. Create DB, generate identity.
+    - If .salt exists and buyer_id row exists: wallet is initialized.
+      Decrypt and return buyer_id. Wrong password raises ValueError immediately.
+    - If .salt exists but no buyer_id row: wallet DB was wiped. Create new identity.
+
+    IMPORTANT: salt_exists is captured BEFORE calling _get_master_key because
+    _get_master_key itself creates the .salt file when it is missing.
+    """
+    import os
+    # Capture before key derivation — _get_master_key will create .salt if absent.
+    salt_existed_before = os.path.exists("wallet/.salt")
     key = _get_master_key(password)
-    # Check DB
-    try:
-        existing = database.load_config("buyer_id", key)
-        if existing:
-            return existing
-    except Exception:
-        # DB might not be init
+
+    if not salt_existed_before:
+        # Brand-new wallet — DB tables may not exist yet.
         database.init_db()
-    
-    # Create new
-    new_id = f"Buyer-{uuid.uuid4().hex[:8]}"  # type: ignore[index]
-    database.save_config("buyer_id", new_id, key)
-    return new_id
+        new_id = f"Buyer-{uuid.uuid4().hex}"  # Use full UUID per spec, not truncated
+        database.save_config("buyer_id", new_id, key)
+        if display_name:
+            database.save_config("buyer_display_name", display_name, key)
+        return new_id
+
+    # .salt existed: wallet has been initialized before.
+    # Ensure DB tables exist (wallet.db could have been manually deleted).
+    database.init_db()
+
+    if database.has_config("buyer_id"):
+        # Row exists — decrypt it.  Wrong key will raise ValueError here.
+        buyer_id = database.load_config("buyer_id", key)
+        if buyer_id is None:
+            # Should not happen (has_config confirmed existence), treat as corrupt.
+            raise ValueError("Config entry missing after existence check — DB may be corrupt.")
+        return buyer_id
+    else:
+        # DB was wiped but .salt survived — safe to create a new identity.
+        new_id = f"Buyer-{uuid.uuid4().hex}"  # Use full UUID per spec
+        database.save_config("buyer_id", new_id, key)
+        if display_name:
+            database.save_config("buyer_display_name", display_name, key)
+        return new_id
 
 
 def preload_funds(password: str, amount: int) -> int:
@@ -84,9 +113,10 @@ def preload_funds(password: str, amount: int) -> int:
         # Ensure bank DB exists for simulation
         bank_db.init_db()
         # Ensure user has funds (Simulated Deposit)
+        import sqlite3
         try:
             bank_db.create_account(buyer_id, max(amount * 2, 1000))
-        except Exception:
+        except sqlite3.IntegrityError:
             # Account might exist, or logic differs. 
             # If exists, we assume it has funds or we add? 
             # simple create_account might fail if exists.
@@ -94,7 +124,7 @@ def preload_funds(password: str, amount: int) -> int:
             pass
 
         bank_key = bank_main.load_or_generate_key()
-    except Exception:
+    except (ImportError, AttributeError, OSError):
          # Fallback for testing environment
          bank_key = ec.generate_private_key(ec.SECP256R1())
 
@@ -105,10 +135,12 @@ def preload_funds(password: str, amount: int) -> int:
     try:
         tokens = issuance.issue_tokens(bank_key, buyer_id, amount)
     except ValueError as e:
-        raise ValueError(f"Bank rejected issuance: {e}")
+        # e.g., Insufficient funds in bank
+        return 0
 
     # 4. Store
     database.store_tokens(tokens, key)
+    
     return len(tokens)
 
 
@@ -135,6 +167,13 @@ def create_payment_packet(password: str, merchant_id: str, amount: int) -> str:
     key = _get_master_key(password)
     buyer_id = get_or_create_identity(password)
     owner_hash = derive_owner_hash(buyer_id)
+    
+    # Load display name if available
+    buyer_name = "Unknown Customer"
+    if database.has_config("buyer_display_name"):
+        val = database.load_config("buyer_display_name", key)
+        if val:
+            buyer_name = val
 
     # Enforce expiry: transition stale UNSPENT -> EXPIRED in DB
     database.expire_stale_tokens()
@@ -183,7 +222,9 @@ def create_payment_packet(password: str, merchant_id: str, amount: int) -> str:
         "buyer_id_hash": owner_hash,
         "merchant_id": merchant_id,
         "tokens": token_dicts,
-        "transaction_timestamp": int(time.time())
+        "transaction_timestamp": int(time.time()),
+        "requested_amount": amount,
+        "buyer_display_name": buyer_name
     }
     
     return json.dumps(packet, indent=2)

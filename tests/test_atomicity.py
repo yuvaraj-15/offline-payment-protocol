@@ -40,6 +40,8 @@ class TestAtomicity(unittest.TestCase):
             merchant_id="Merchant",
             tokens=tokens,
             transaction_timestamp=int(_time.time()),
+            requested_amount=sum(t.denomination for t in tokens),
+            buyer_display_name="Alice"
         )
 
     # A — concurrent settle vs refund

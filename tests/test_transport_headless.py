@@ -17,12 +17,12 @@ import unittest.mock
 # ---- Patch getpass before importing wallet modules ----
 unittest.mock.patch('getpass.getpass', return_value='test_pass_transport').start()
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from wallet import core as wallet_core  # type: ignore[import]
 from wallet import transport as wallet_transport  # type: ignore[import]
 from bank import database as bank_db  # type: ignore[import]
-from bank import main as bank_main  # type: ignore[import]
+from demos import bank_demo as bank_main  # type: ignore[import]
 from merchant import database as merch_db  # type: ignore[import]
 
 

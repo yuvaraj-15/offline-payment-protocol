@@ -47,3 +47,5 @@ class TransactionPackage:
     merchant_id: str
     tokens: List[Token]
     transaction_timestamp: int
+    requested_amount: int
+    buyer_display_name: str

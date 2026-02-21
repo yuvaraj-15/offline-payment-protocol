@@ -48,7 +48,9 @@ def settle_pending_transactions() -> int:
                 buyer_id_hash=tx["buyer_id_hash"],
                 merchant_id=tx["merchant_id"],
                 tokens=tokens,
-                transaction_timestamp=tx["timestamp"]
+                transaction_timestamp=tx["timestamp"],
+                requested_amount=tx["requested_amount"],
+                buyer_display_name=tx["buyer_display_name"] or "Unknown Customer"
             )
             
             # Call Bank (Simulation)

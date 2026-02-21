@@ -1,0 +1,31 @@
+import os
+import sys
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from wallet.database import init_db as w_init  # type: ignore[import]
+from bank.database import init_db as b_init  # type: ignore[import]
+
+def reset_wallet():
+    print("Resetting Wallet Identity & Database...")
+    if os.path.exists('wallet/.salt'):
+        os.remove('wallet/.salt')
+        print(" -> Deleted wallet/.salt")
+    else:
+        print(" -> No wallet/.salt found.")
+    
+    w_init(reset=True)
+    print(" -> Deleted and recreated wallet.db tables")
+    
+    print("\nResetting simulated Bank Database (to allow fresh preloads)...")
+    b_init(reset=True)
+    print(" -> Deleted and recreated bank.db tables")
+    
+    print("\n--- Wallet Environment Completely Reset ---")
+    print("Run `python wallet_app.py` to start fresh.")
+
+if __name__ == "__main__":
+    reset_wallet()

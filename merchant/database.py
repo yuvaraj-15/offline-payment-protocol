@@ -6,6 +6,7 @@ Strictly relies on PRIMARY KEY constraints for duplicate detection.
 import sqlite3
 import json
 from contextlib import contextmanager
+from typing import Optional
 
 DB_PATH = "merchant/merchant.db"
 
@@ -23,6 +24,7 @@ def init_db(reset: bool = False):
     """Initialize Merchant Ledger."""
     with get_db() as conn:
         if reset:
+            conn.execute("DROP TABLE IF EXISTS config")
             conn.execute("DROP TABLE IF EXISTS received_tokens")
             conn.execute("DROP TABLE IF EXISTS transactions")
 
@@ -34,9 +36,22 @@ def init_db(reset: bool = False):
                 merchant_id TEXT NOT NULL,
                 total_amount INTEGER NOT NULL,
                 timestamp INTEGER NOT NULL,
-                status TEXT DEFAULT 'PENDING'
+                status TEXT DEFAULT 'PENDING',
+                requested_amount INTEGER NOT NULL DEFAULT 0,
+                buyer_display_name TEXT
             )
         """)
+        
+        # Safe migration for existing tables:
+        try:
+            conn.execute("ALTER TABLE transactions ADD COLUMN requested_amount INT DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass  # Column likely exists
+            
+        try:
+            conn.execute("ALTER TABLE transactions ADD COLUMN buyer_display_name TEXT")
+        except sqlite3.OperationalError:
+            pass  # Column likely exists
 
         # Token Store
         # token_id is PRIMARY KEY to enforce global uniqueness
@@ -51,6 +66,23 @@ def init_db(reset: bool = False):
                 FOREIGN KEY(transaction_id) REFERENCES transactions(transaction_id)
             )
         """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS config (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        """)
+        conn.commit()
+
+def load_config(key_name: str) -> Optional[str]:
+    with get_db() as conn:
+        row = conn.execute("SELECT value FROM config WHERE key = ?", (key_name,)).fetchone()
+        return row["value"] if row else None
+
+def save_config(key_name: str, value: str):
+    with get_db() as conn:
+        conn.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (key_name, value))
         conn.commit()
 
 
@@ -65,6 +97,8 @@ def save_transaction(packet: dict) -> bool:
     buyer_hash = packet["buyer_id_hash"]
     m_id = packet["merchant_id"]
     ts = packet["transaction_timestamp"]
+    req_amount = packet["requested_amount"]
+    buyer_name = packet.get("buyer_display_name", "Unknown Customer")
     tokens = packet["tokens"]
     
     total = sum(t["denomination"] for t in tokens)
@@ -74,9 +108,9 @@ def save_transaction(packet: dict) -> bool:
             # 1. Insert Transaction Record
             conn.execute("""
                 INSERT INTO transactions 
-                (transaction_id, buyer_id_hash, merchant_id, total_amount, timestamp)
-                VALUES (?, ?, ?, ?, ?)
-            """, (tx_id, buyer_hash, m_id, total, ts))
+                (transaction_id, buyer_id_hash, merchant_id, total_amount, timestamp, requested_amount, buyer_display_name)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (tx_id, buyer_hash, m_id, total, ts, req_amount, buyer_name))
             
             # 2. Insert Tokens
             # This loop will FAIL with IntegrityError if ANY token_id exists
@@ -94,7 +128,7 @@ def save_transaction(packet: dict) -> bool:
             # Duplicate ID detected (Transaction level or Token level)
             conn.rollback()
             return False
-        except Exception:
+        except sqlite3.Error:
             conn.rollback()
             raise
     return False  # unreachable; satisfies Pyre2 missing-return check

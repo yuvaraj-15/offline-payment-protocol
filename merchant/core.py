@@ -26,7 +26,7 @@ def _load_bank_public_key() -> Any:
         return serialization.load_pem_public_key(f.read())
 
 
-def verify_packet(packet_json: str) -> dict:
+def verify_packet(packet_json: str, merchant_id: str) -> dict:
     """Parse and Verify Payment Packet.
     
     Checks:
@@ -47,12 +47,21 @@ def verify_packet(packet_json: str) -> dict:
     tx_id = data.get("transaction_id")
     buyer_hash = data.get("buyer_id_hash")
     tx_ts = data.get("transaction_timestamp")
+    req_amount = data.get("requested_amount")
     tokens_data = data.get("tokens", [])
     
     if not tokens_data:
         raise ValueError("Empty token list")
 
+    if data.get("merchant_id") != merchant_id:
+        raise ValueError("Merchant ID mismatch")
+        
+    if req_amount is None or not isinstance(req_amount, int) or req_amount <= 0:
+        raise ValueError("Invalid requested_amount")
+
     bank_pub = _load_bank_public_key()
+    
+    total_token_value = 0
     
     for t_data in tokens_data:
         # Reconstruct Token Object
@@ -67,7 +76,11 @@ def verify_packet(packet_json: str) -> dict:
         if token.owner_id_hash != buyer_hash:
             raise ValueError(f"Token {token.token_id} belongs to different owner")
             
-        # 2. Expiry Check (Strict >=)
+        # 2. Timestamp Bound: issue_ts must be <= tx_ts
+        if token.issue_timestamp > tx_ts:
+            raise ValueError("Transaction timestamp earlier than token issuance")
+
+        # 3. Expiry Check (Strict >=)
         if token.expiry_timestamp < tx_ts:
             raise ValueError(f"Token {token.token_id} expired at {token.expiry_timestamp}")
             
@@ -77,11 +90,16 @@ def verify_packet(packet_json: str) -> dict:
         
         if not verify_signature(bank_pub, msg_hash, token.signature):
             raise ValueError(f"Invalid Bank Signature for token {token.token_id}")
+            
+        total_token_value += token.denomination
+
+    if total_token_value < req_amount:
+        raise ValueError(f"Tokens insufficient. Provided: {total_token_value}, Requested: {req_amount}")
 
     return data
 
 
-def process_payment(packet_json: str) -> bool:
+def process_payment(packet_json: str, merchant_id: str) -> bool:
     """Verify and Store Payment.
     
     Returns:
@@ -91,7 +109,7 @@ def process_payment(packet_json: str) -> bool:
         ValueError: Invalid Packet.
     """
     # 1. Verify
-    packet = verify_packet(packet_json)
+    packet = verify_packet(packet_json, merchant_id)
     
     # 2. Store Atomic
     committed = database.save_transaction(packet)

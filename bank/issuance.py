@@ -3,6 +3,7 @@ Issuance logic for the Bank module.
 """
 import uuid
 import time
+import sqlite3
 from typing import List
 
 from shared.models import Token  # type: ignore[import]
@@ -119,6 +120,6 @@ def issue_tokens(
             conn.commit()
             return generated_tokens
 
-        except Exception:
+        except sqlite3.Error:
             conn.rollback()
             raise

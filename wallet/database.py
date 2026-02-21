@@ -60,13 +60,26 @@ def init_db(reset: bool = False):
 
 
 def save_config(key_name: str, value_str: str, master_key: bytes):
-    """Encrypt and save a config value (e.g., buyer_id)."""
+    """Encrypt and save a config value (e.g., buyer_id).
+
+    Uses INSERT OR IGNORE -- never overwrites an existing entry.
+    """
     encrypted = encrypt_blob(master_key, value_str.encode("utf-8"))
     with get_db() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)",
+            "INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)",
             (key_name, encrypted)
         )
+
+
+def has_config(key_name: str) -> bool:
+    """Return True if the config key row exists (regardless of password)."""
+    with get_db() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM config WHERE key = ?", (key_name,)
+        ).fetchone()
+        return row is not None
+    return False  # unreachable; satisfies Pyre2 missing-return check
 
 
 def load_config(key_name: str, master_key: bytes) -> Optional[str]:
@@ -75,10 +88,11 @@ def load_config(key_name: str, master_key: bytes) -> Optional[str]:
         row = conn.execute("SELECT value FROM config WHERE key = ?", (key_name,)).fetchone()
         if not row:
             return None
+        from cryptography.exceptions import InvalidTag  # type: ignore[import]
         try:
             plaintext = decrypt_blob(master_key, row["value"])
             return plaintext.decode("utf-8")
-        except Exception:
+        except InvalidTag:
             raise ValueError("Decryption failed. Wrong password?")
 
 
@@ -172,10 +186,10 @@ def mark_tokens_spent(token_ids: List[str]) -> bool:
                 # Mismatch: some tokens were not UNSPENT or missing.
                 conn.execute("ROLLBACK")
                 return False
-        except Exception:
+        except sqlite3.Error as e:
             try:
                 conn.execute("ROLLBACK")
-            except Exception:
+            except sqlite3.Error:
                 pass
-            return False
+            raise RuntimeError(f"Database error during mark_tokens_spent: {e}") from e
     return False  # unreachable; satisfies Pyre2 missing-return check

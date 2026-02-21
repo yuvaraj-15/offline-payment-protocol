@@ -56,7 +56,7 @@ class TestIntegrity(unittest.TestCase):
         tokens = issue_tokens(self.key, "Alice", 200)
         t = tokens[0]
         tx = TransactionPackage("tx-1", derive_owner_hash("Alice"), "M",
-                                [t], int(_time.time()))
+                                [t], int(_time.time()), t.denomination, "Alice")
         r1 = settle_transaction(self.pub, tx)
         self.assertEqual(r1[t.token_id], "SETTLED")
         r2 = settle_transaction(self.pub, tx)
@@ -83,7 +83,8 @@ class TestIntegrity(unittest.TestCase):
         self.assertEqual(initial, self._total_balances() + self._issued_value())
 
         tx = TransactionPackage("tx-1", derive_owner_hash("Alice"), "M",
-                                tokens[:2], int(_time.time()))
+                                tokens[:2], int(_time.time()),
+                                sum(t.denomination for t in tokens[:2]), "Alice")
         settle_transaction(self.pub, tx)
         self.assertEqual(initial, self._total_balances() + self._issued_value())
 
@@ -115,6 +116,7 @@ class TestIntegrity(unittest.TestCase):
                     f"tx-{tok.token_id[:8]}",
                     derive_owner_hash("Stress"), "SM",
                     [tok], int(_time.time()),
+                    tok.denomination, "Stress"
                 )
                 r = settle_transaction(self.pub, tx)
                 self.assertIn(r[tok.token_id],

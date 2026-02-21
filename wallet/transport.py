@@ -15,7 +15,7 @@ import json
 import socket
 import logging
 import cv2  # type: ignore[import]
-from pyzbar.pyzbar import decode as pyzbar_decode  # type: ignore[import]
+from pyzbar.pyzbar import decode as pyzbar_decode, ZBarSymbol  # type: ignore[import]
 
 logging.basicConfig(level=logging.INFO, format='[TCP-Transport] %(message)s')
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ def scan_qr() -> tuple[str, str, int]:
             if not ret:
                 raise RuntimeError("[TCP-Transport] Camera read failure")
 
-            decoded_objects = pyzbar_decode(frame)
+            decoded_objects = pyzbar_decode(frame, symbols=[ZBarSymbol.QRCODE])
             for obj in decoded_objects:
                 try:
                     data = json.loads(obj.data.decode('utf-8'))

@@ -11,12 +11,14 @@ import unittest.mock
 from io import StringIO
 
 # ---- Bootstrap ----
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 unittest.mock.patch('getpass.getpass', return_value='test_pass_2026').start()
 
 from shared.models import Token, TransactionPackage  # type: ignore[import]
 from shared.crypto import canonical_hash, verify_signature, derive_owner_hash, sign_data  # type: ignore[import]
 from shared.constants import ISSUER_ID, ALLOWED_DENOMINATIONS, EXPIRY_SECONDS  # type: ignore[import]
-from bank import database as bank_db, issuance as bank_issuance, main as bank_main  # type: ignore[import]
+from bank import database as bank_db, issuance as bank_issuance  # type: ignore[import]
+from demos import bank_demo as bank_main
 from bank import settlement as bank_settlement, refund as bank_refund  # type: ignore[import]
 from wallet import database as wallet_db, core as wallet_core, crypto as wallet_crypto  # type: ignore[import]
 from merchant import database as merch_db, core as merch_core  # type: ignore[import]
@@ -99,7 +101,7 @@ def section_1():
 
     # 1.4 Merchant receives
     merch_db.init_db(reset=True)
-    result = merch_core.process_payment(packet_json)
+    result = merch_core.process_payment(packet_json, "MerchantA")
     log_test("1.4a", "Merchant accepts valid packet",
              "Valid packet", "True", str(result), result is True)
 
@@ -193,7 +195,7 @@ def section_2():
     wallet_core.preload_funds("test_pass_2026", 100)
     packet_json = wallet_core.create_payment_packet("test_pass_2026", "MerchantB", 100)
     merch_db.init_db(reset=True)
-    merch_core.process_payment(packet_json)
+    merch_core.process_payment(packet_json, "MerchantB")
 
     # Wait for token to expire at Bank
     time.sleep(4)
@@ -207,7 +209,7 @@ def section_2():
 
     # 2.6 Merchant rejects when transaction_timestamp > expiry_timestamp
     # This simulates a buyer trying to use already-expired tokens
-    bank_issuance.EXPIRY_SECONDS = 1
+    bank_issuance.EXPIRY_SECONDS = 5
     clean_state()
     wallet_core.preload_funds("test_pass_2026", 50)
     packet_json = wallet_core.create_payment_packet("test_pass_2026", "MX", 50)
@@ -217,7 +219,7 @@ def section_2():
     forged_json = json.dumps(forged_pkt)
     merch_db.init_db(reset=True)
     try:
-        merch_core.verify_packet(forged_json)
+        merch_core.verify_packet(forged_json, "MX")
         log_test("2.6", "Merchant rejects packet with tx_timestamp > expiry",
                  "Forged tx_ts after expiry", "ValueError raised", "No error", False)
     except ValueError as e:
@@ -244,12 +246,12 @@ def section_3():
     merch_db.init_db(reset=True)
 
     # First insertion
-    r1 = merch_core.process_payment(packet_json)
+    r1 = merch_core.process_payment(packet_json, "DupMerchant")
     log_test("3.1", "First insertion succeeds",
              "New packet", "True", str(r1), r1 is True)
 
     # Second insertion (same packet, same merchant)
-    r2 = merch_core.process_payment(packet_json)
+    r2 = merch_core.process_payment(packet_json, "DupMerchant")
     log_test("3.2", "Second insertion triggers PK violation",
              "Same packet", "False", str(r2), r2 is False)
 
@@ -290,7 +292,7 @@ def section_4():
     original_db = merch_db.DB_PATH
     merch_db.DB_PATH = merch_a_db
     merch_db.init_db()
-    r_a = merch_core.process_payment(packet_json)
+    r_a = merch_core.process_payment(packet_json, "CrossMerchA")
     log_test("4.1", "Merchant A accepts packet offline",
              "Fresh merchant A", "True", str(r_a), r_a is True)
 
@@ -301,7 +303,7 @@ def section_4():
     pkt_b = copy.deepcopy(pkt)
     pkt_b["merchant_id"] = "CrossMerchB"
     pkt_b["transaction_id"] = pkt["transaction_id"] + "-B"  # Different tx ID
-    r_b = merch_core.process_payment(json.dumps(pkt_b))
+    r_b = merch_core.process_payment(json.dumps(pkt_b), "CrossMerchB")
     log_test("4.2", "Merchant B accepts same tokens offline (cross-replay)",
              "Fresh merchant B, same tokens", "True", str(r_b), r_b is True)
 
@@ -324,7 +326,9 @@ def section_4():
             buyer_id_hash=tx["buyer_id_hash"],
             merchant_id=tx["merchant_id"],
             tokens=tokens,
-            transaction_timestamp=tx["timestamp"]
+            transaction_timestamp=tx["timestamp"],
+            requested_amount=tx["requested_amount"],
+            buyer_display_name=tx["buyer_display_name"]
         )
         results_a = bank_settlement.settle_transaction(bank_pub, pkg)
 
@@ -346,7 +350,9 @@ def section_4():
             buyer_id_hash=tx["buyer_id_hash"],
             merchant_id=tx["merchant_id"],
             tokens=tokens,
-            transaction_timestamp=tx["timestamp"]
+            transaction_timestamp=tx["timestamp"],
+            requested_amount=tx["requested_amount"],
+            buyer_display_name=tx["buyer_display_name"]
         )
         results_b = bank_settlement.settle_transaction(bank_pub, pkg)
 
@@ -383,7 +389,7 @@ def section_5():
     clean_state()
     original_expiry = bank_issuance.EXPIRY_SECONDS
     original_buffer = wallet_core.EXPIRY_BUFFER_SECONDS
-    bank_issuance.EXPIRY_SECONDS = 1
+    bank_issuance.EXPIRY_SECONDS = 3
     wallet_core.EXPIRY_BUFFER_SECONDS = 0
 
     wallet_core.preload_funds("test_pass_2026", 100)
@@ -396,7 +402,7 @@ def section_5():
 
     # Merchant accepts
     merch_db.init_db(reset=True)
-    merch_core.process_payment(packet_json)
+    merch_core.process_payment(packet_json, "RaceMerchant")
     bank_db.create_account("RaceMerchant", 0)
 
     # Wait for expiry
@@ -424,7 +430,9 @@ def section_5():
             buyer_id_hash=pkt['buyer_id_hash'],
             merchant_id=pkt['merchant_id'],
             tokens=tokens,
-            transaction_timestamp=pkt['transaction_timestamp']
+            transaction_timestamp=pkt['transaction_timestamp'],
+            requested_amount=pkt.get('requested_amount', 0),
+            buyer_display_name=pkt.get('buyer_display_name', "Unknown")
         )
         sr = bank_settlement.settle_transaction(bank_pub, pkg)
         for tid, status in sr.items():
@@ -603,7 +611,7 @@ def section_8():
     packet_json = wallet_core.create_payment_packet("test_pass_2026", "InvMerchant", 100)
     pkt = json.loads(packet_json)
     merch_db.init_db(reset=True)
-    merch_core.process_payment(packet_json)
+    merch_core.process_payment(packet_json, "InvMerchant")
 
     # 8.1 No SPENT -> UNSPENT
     spent_ids = [t['token_id'] for t in pkt['tokens']]
@@ -632,7 +640,7 @@ def section_8():
     bad_pkt['transaction_id'] = 'bad-' + bad_pkt['transaction_id']
     merch_db.init_db(reset=True)
     try:
-        merch_core.verify_packet(json.dumps(bad_pkt))
+        merch_core.verify_packet(json.dumps(bad_pkt), "InvMerchant")
         log_test("8.3", "Invalid signature rejected by merchant",
                  "Tampered sig", "ValueError", "No error", False)
     except ValueError as e:
@@ -662,7 +670,7 @@ def section_8():
              "Hash construction", "Confirmed in S6", "Confirmed", True)
 
     # 8.8 Packet contains no extra fields
-    expected_keys = {"transaction_id", "buyer_id_hash", "merchant_id", "tokens", "transaction_timestamp"}
+    expected_keys = {"transaction_id", "buyer_id_hash", "merchant_id", "tokens", "transaction_timestamp", "requested_amount", "buyer_display_name"}
     actual_keys = set(pkt.keys())
     log_test("8.8", "Packet contains no extra fields",
              f"keys={actual_keys}", f"exactly {expected_keys}",
@@ -733,7 +741,7 @@ def section_9():
     packet_json = wallet_core.create_payment_packet("test_pass_2026", "PerfM2", 100)
     merch_db.init_db(reset=True)
     t0 = time.perf_counter()
-    merch_core.process_payment(packet_json)
+    merch_core.process_payment(packet_json, "PerfM2")
     t1 = time.perf_counter()
     verify_ms = (t1 - t0) * 1000
     log_test("9.4", f"Merchant verification: {verify_ms:.1f} ms",

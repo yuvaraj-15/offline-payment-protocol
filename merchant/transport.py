@@ -78,7 +78,7 @@ def generate_qr_image(data_str: str):  # type: ignore[return]
     return open_cv_image[:, :, ::-1].copy()  # type: ignore[index]
 
 
-def handle_client(client_sock: socket.socket, client_addr: tuple) -> None:
+def handle_client(client_sock: socket.socket, client_addr: tuple, merchant_id: str) -> None:
     """Handle a single incoming Wallet connection (single-shot protocol)."""
     try:
         logger.info(f"Connection accepted from {client_addr}")
@@ -110,7 +110,7 @@ def handle_client(client_sock: socket.socket, client_addr: tuple) -> None:
         logger.info(f"Received payload ({len(json_str)} chars) — forwarding to core")
 
         try:
-            success = core.process_payment(json_str)
+            success = core.process_payment(json_str, merchant_id)
             ack = b"ACK_SUCCESS\n" if success else b"ACK_REJECT\n"
         except Exception as e:
             logger.error(f"Core processing error: {e}")
@@ -124,8 +124,8 @@ def handle_client(client_sock: socket.socket, client_addr: tuple) -> None:
     finally:
         try:
             client_sock.close()
-        except Exception:
-            pass
+        except OSError as e:
+            logger.debug(f"Socket close error: {e}")
         logger.info(f"Client connection closed ({client_addr})")
 
 
@@ -139,14 +139,20 @@ def start_server(merchant_id: str, headless: bool = False) -> None:
     # --- Discover LAN IP (raises RuntimeError if not on LAN) ---
     lan_ip = get_lan_ip()
 
-    # --- Bind TCP server socket (OS assigns dynamic port) ---
+    DEFAULT_PORT = 5050
+    # --- Bind TCP server socket ---
     server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_sock.bind(("0.0.0.0", 0))
+    try:
+        server_sock.bind(("0.0.0.0", DEFAULT_PORT))
+    except OSError:
+        logger.error(f"Port {DEFAULT_PORT} is already in use. Aborting server start.")
+        sys.exit(1)
+        
     server_sock.listen(1)
     # Server accept() has NO timeout — blocks indefinitely.
 
-    port: int = server_sock.getsockname()[1]
+    port: int = DEFAULT_PORT
     logger.info(f"TCP server bound — IP: {lan_ip}  Port: {port}")
 
     # --- Build QR payload ---
@@ -165,10 +171,14 @@ def start_server(merchant_id: str, headless: bool = False) -> None:
                 client_sock, client_addr = server_sock.accept()
                 t = threading.Thread(
                     target=handle_client,
-                    args=(client_sock, client_addr),
+                    args=(client_sock, client_addr, merchant_id),
                     daemon=True,
                 )
                 t.start()
+            except OSError:
+                # Socket was closed by 'q' or Ctrl+C
+                logger.info("Server socket closed, stopping accept loop.")
+                break
             except Exception as e:
                 logger.error(f"Accept error: {e}")
                 # Brief pause to avoid tight error loops
@@ -190,7 +200,8 @@ def start_server(merchant_id: str, headless: bool = False) -> None:
                 break
         server_sock.close()
         cv2.destroyAllWindows()
-        sys.exit(0)
+        # Return instead of killing the entire process
+        return
 
 
 if __name__ == "__main__":

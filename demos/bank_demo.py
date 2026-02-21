@@ -18,7 +18,7 @@ from bank.refund import request_refund  # type: ignore[import]
 from shared.models import TransactionPackage  # type: ignore[import]
 from shared.crypto import derive_owner_hash  # type: ignore[import]
 
-BANK_DIR = os.path.dirname(os.path.abspath(__file__))
+BANK_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'bank'))
 KEY_FILE = os.path.join(BANK_DIR, "bank_private_key.pem")
 PUB_KEY_FILE = os.path.join(BANK_DIR, "public_key.pem")
 
@@ -90,6 +90,8 @@ def main():
         merchant_id="MerchantBob",
         tokens=payment_tokens,
         transaction_timestamp=int(time.time()),
+        requested_amount=total_payment,
+        buyer_display_name="Alice"
     )
     print(f"  Payment Package: {len(payment_tokens)} tokens, Rs.{total_payment}")
 
