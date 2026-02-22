@@ -8,7 +8,6 @@ from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
 from shared.models import Token  # type: ignore[import]
 from shared.crypto import canonical_hash, sign_data, verify_signature  # type: ignore[import]
 
-
 def _fixed_token():
     return Token(
         token_id="test-token-001",
@@ -20,11 +19,9 @@ def _fixed_token():
         signature="",
     )
 
-
 # Pre-compute expected digest
 _RAW = "test-token-001RuralBank01abc123hash10017000000001700172800"
 _EXPECTED_HEX = hashlib.sha256(_RAW.encode("utf-8")).hexdigest()
-
 
 class TestCanonicalHashDeterminism(unittest.TestCase):
     """A. Canonical Hash Determinism."""
@@ -36,7 +33,6 @@ class TestCanonicalHashDeterminism(unittest.TestCase):
     def test_expected_hex_digest(self):
         t = _fixed_token()
         self.assertEqual(canonical_hash(t).hex(), _EXPECTED_HEX)
-
 
 class TestFieldMutationProtection(unittest.TestCase):
     """B. Field Mutation Protection — modifying any field invalidates signature."""
@@ -71,7 +67,6 @@ class TestFieldMutationProtection(unittest.TestCase):
     def test_mutate_expiry_timestamp(self):
         self._assert_mutation_fails("expiry_timestamp", 1)
 
-
 class TestSignatureFieldExclusion(unittest.TestCase):
     """C. Changing signature field must NOT change canonical_hash."""
 
@@ -79,7 +74,6 @@ class TestSignatureFieldExclusion(unittest.TestCase):
         t1 = _fixed_token(); t1.signature = "aabb"
         t2 = _fixed_token(); t2.signature = "ccdd"
         self.assertEqual(canonical_hash(t1), canonical_hash(t2))
-
 
 class TestBitFlip(unittest.TestCase):
     """D. Flipping 1 bit in signature must fail verification."""
@@ -92,7 +86,6 @@ class TestBitFlip(unittest.TestCase):
         flipped = bytearray(bytes.fromhex(sig))
         flipped[0] ^= 0x01
         self.assertFalse(verify_signature(key.public_key(), h, flipped.hex()))
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -160,7 +160,6 @@ try:
 except Exception as e:
     r("A5", "Network failure / token reuse", False, str(e))
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECTION B — MERCHANT VERIFICATION
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -252,7 +251,6 @@ try:
         r("B5", "Expired token rejected by merchant", "expir" in str(e).lower(), str(e))
 except Exception as e:
     r("B5", "Expired token", False, str(e))
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECTION C — BANK BEHAVIOUR
@@ -388,7 +386,6 @@ try:
 except Exception as e:
     r("C4", "Refund logic", False, traceback.format_exc())
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # SECTION D — TRANSPORT
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -501,7 +498,6 @@ try:
 except Exception as e:
     r("D5", "Missing newline delimiter", False, str(e))
 
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # FINAL INVARIANT CHECKS
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -573,7 +569,6 @@ try:
         conn.close()
 except Exception as e:
     r("F4", "Silent state transition check", False, str(e))
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SUMMARY REPORT

@@ -1,16 +1,3 @@
-"""
-Wallet Transport Layer (Pure TCP / WiFi LAN).
-
-Responsibilities:
-1. Scan QR code via webcam (cv2 + pyzbar).
-2. Parse ip + port from QR JSON payload.
-3. Connect to Merchant via TCP.
-4. Send payment packet as compact JSON + newline.
-5. Wait for ACK (5-second timeout).
-6. Return True on ACK_SUCCESS, False otherwise.
-
-Protocol isolation: receives JSON string from wallet.core, sends unchanged.
-"""
 import json
 import socket
 import logging
@@ -23,17 +10,7 @@ logger = logging.getLogger(__name__)
 TIMEOUT_SECONDS = 5.0
 BUFFER_SIZE = 4096
 
-
 def scan_qr() -> tuple[str, str, int]:
-    """Open webcam and scan for Merchant QR code.
-
-    Returns:
-        (merchant_id, ip, port) extracted from QR JSON.
-
-    Raises:
-        RuntimeError: If camera cannot be opened or no QR found within
-                      camera session (user presses 'q').
-    """
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
         raise RuntimeError("[TCP-Transport] Cannot open camera (device 0)")
@@ -84,21 +61,8 @@ def scan_qr() -> tuple[str, str, int]:
     logger.info(f"QR scanned — merchant: {merchant_id}  ip: {ip}  port: {port}")
     return merchant_id, ip, port  # type: ignore[return-value]
 
-
 def send_payment(packet_json: str, ip: str, port: int) -> bool:
-    """Connect to Merchant via TCP and transmit payment packet.
-
-    Re-serialises packet_json to compact form to strip any formatting
-    whitespace that would break newline framing.
-
-    Args:
-        packet_json: JSON string from wallet.core.create_payment_packet.
-        ip:          Merchant LAN IP from QR.
-        port:        TCP port from QR.
-
-    Returns:
-        True if merchant replies ACK_SUCCESS, False otherwise.
-    """
+    
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.settimeout(TIMEOUT_SECONDS)
 
@@ -114,7 +78,7 @@ def send_payment(packet_json: str, ip: str, port: int) -> bool:
         sock.sendall(payload)
         logger.info(f"Packet sent ({len(compact)} chars). Waiting for ACK...")
 
-        # Read ACK (single-shot; accumulate until newline)
+        # Read ACK
         buffer = b""
         while b'\n' not in buffer:
             chunk = sock.recv(BUFFER_SIZE)
@@ -138,8 +102,7 @@ def send_payment(packet_json: str, ip: str, port: int) -> bool:
         return False
     finally:
         sock.close()
-    return False  # unreachable — satisfies Pyre2 missing-return check
-
+    return False
 
 if __name__ == "__main__":
     try:

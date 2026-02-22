@@ -14,7 +14,6 @@ from bank.issuance import issue_tokens  # type: ignore[import]
 from bank.settlement import settle_transaction  # type: ignore[import]
 from bank.refund import request_refund  # type: ignore[import]
 
-
 class TestSettlement(unittest.TestCase):
     def setUp(self):
         self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
@@ -89,7 +88,6 @@ class TestSettlement(unittest.TestCase):
         r2 = settle_transaction(self.pub, self._tx(self.tokens))
         for s in r2.values():
             self.assertEqual(s, "REJECTED_DUPLICATE")
-
 
 if __name__ == "__main__":
     unittest.main()

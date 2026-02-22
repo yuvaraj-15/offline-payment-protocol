@@ -1,26 +1,9 @@
-"""
-Refund logic for the Bank module.
-Strict enforcement: Refund allowed ONLY if status=ISSUED AND now > expires_at.
-State transition: ISSUED -> REFUNDED (atomic, no reverse).
-"""
 import time
 from shared.crypto import derive_owner_hash  # type: ignore[import]
 from bank.database import get_db_connection  # type: ignore[import]
 
-
 def request_refund(buyer_id: str, token_id: str) -> str:
-    """
-    Authenticated refund request.
 
-    Steps:
-      1. Verify buyer_id hash matches the token's owner_id_hash.
-      2. Verify token status is ISSUED.
-      3. Verify token has expired (now > expires_at).
-      4. Atomically transition ISSUED -> REFUNDED.
-      5. Credit buyer account.
-
-    Returns a status string indicating the outcome.
-    """
     now = int(time.time())
     requested_hash = derive_owner_hash(buyer_id)
 
@@ -42,22 +25,18 @@ def request_refund(buyer_id: str, token_id: str) -> str:
 
             status, expires_at, denomination, owner_id_hash = row
 
-            # Verify Ownership
             if requested_hash != owner_id_hash:
                 conn.rollback()
                 return "FAILED_OWNER_MISMATCH"
 
-            # Check current status
             if status != "ISSUED":
                 conn.rollback()
                 return f"FAILED_{status}"
 
-            # Enforce expiry rule: refund only AFTER expiry
             if now <= expires_at:
                 conn.rollback()
                 return "FAILED_NOT_EXPIRED"
 
-            # Atomic transition: ISSUED -> REFUNDED
             cursor.execute(
                 """
                 UPDATE tokens
@@ -72,7 +51,6 @@ def request_refund(buyer_id: str, token_id: str) -> str:
                 conn.rollback()
                 return "FAILED_CONCURRENT_MODIFICATION"
 
-            # Credit Buyer account
             cursor.execute(
                 "SELECT balance FROM accounts WHERE user_id = ?", (buyer_id,)
             )

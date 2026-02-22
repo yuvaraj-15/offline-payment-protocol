@@ -1,8 +1,3 @@
-"""Merchant Database (Plaintext Transaction Log).
-
-Stores received offline transactions and tokens key-value.
-Strictly relies on PRIMARY KEY constraints for duplicate detection.
-"""
 import sqlite3
 import json
 from contextlib import contextmanager
@@ -21,7 +16,6 @@ def get_db():
         yield conn
     finally:
         conn.close()
-
 
 def init_db(reset: bool = False):
     """Initialize Merchant Ledger."""
@@ -45,20 +39,17 @@ def init_db(reset: bool = False):
             )
         """)
         
-        # Safe migration for existing tables:
         try:
             conn.execute("ALTER TABLE transactions ADD COLUMN requested_amount INT DEFAULT 0")
         except sqlite3.OperationalError:
-            pass  # Column likely exists
+            pass
             
         try:
             conn.execute("ALTER TABLE transactions ADD COLUMN buyer_display_name TEXT")
         except sqlite3.OperationalError:
-            pass  # Column likely exists
+            pass
 
         # Token Store
-        # token_id is PRIMARY KEY to enforce global uniqueness
-        # If the same token is presented twice (even in diff transactions), it fails.
         conn.execute("""
             CREATE TABLE IF NOT EXISTS received_tokens (
                 token_id TEXT PRIMARY KEY,
@@ -88,14 +79,8 @@ def save_config(key_name: str, value: str):
         conn.execute("INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)", (key_name, value))
         conn.commit()
 
-
 def save_transaction(packet: dict) -> bool:
-    """Atomically save a verified transaction package.
-
-    Returns:
-        True: Transaction committed.
-        False: Duplicate token detected (Rolled back).
-    """
+    
     tx_id = packet["transaction_id"]
     buyer_hash = packet["buyer_id_hash"]
     m_id = packet["merchant_id"]
@@ -116,7 +101,6 @@ def save_transaction(packet: dict) -> bool:
             """, (tx_id, buyer_hash, m_id, total, ts, req_amount, buyer_name))
             
             # 2. Insert Tokens
-            # This loop will FAIL with IntegrityError if ANY token_id exists
             for t in tokens:
                 conn.execute("""
                     INSERT INTO received_tokens
@@ -128,10 +112,10 @@ def save_transaction(packet: dict) -> bool:
             return True
             
         except sqlite3.IntegrityError:
-            # Duplicate ID detected (Transaction level or Token level)
+            # Duplicate ID detected
             conn.rollback()
             return False
         except sqlite3.Error:
             conn.rollback()
             raise
-    return False  # unreachable; satisfies Pyre2 missing-return check
+    return False

@@ -1,6 +1,3 @@
-"""
-Bank cryptographic key generation and loading.
-"""
 import os
 
 from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
@@ -11,10 +8,7 @@ from shared.paths import BANK_KEY_PATH, BANK_PUB_KEY_PATH  # type: ignore[import
 KEY_FILE = str(BANK_KEY_PATH)
 PUB_KEY_FILE = str(BANK_PUB_KEY_PATH)
 
-
 def load_or_generate_key():
-    """Load an existing key from disk, or generate and persist a new one.
-    Always exports the public key to public_key.pem."""
     BANK_KEY_PATH.parent.mkdir(parents=True, exist_ok=True)
     if os.path.exists(KEY_FILE):
         with open(KEY_FILE, "rb") as f:
@@ -31,7 +25,6 @@ def load_or_generate_key():
                 )
             )
 
-    # Always export public key
     public_key = private_key.public_key()
     with open(PUB_KEY_FILE, "wb") as f:
         f.write(

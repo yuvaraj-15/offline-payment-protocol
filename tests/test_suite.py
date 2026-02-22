@@ -10,7 +10,6 @@ import sys, os, time, json, hashlib, sqlite3, threading, dataclasses, copy
 import unittest.mock
 from io import StringIO
 
-# ---- Bootstrap ----
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 unittest.mock.patch('getpass.getpass', return_value='test_pass_2026').start()
 
@@ -24,12 +23,10 @@ from wallet import database as wallet_db, core as wallet_core, crypto as wallet_
 from merchant import database as merch_db, core as merch_core  # type: ignore[import]
 from merchant import settlement as merch_settlement  # type: ignore[import]
 
-# ---- Report Collection ----
 report = []
 bugs = []
 fixes = []
 section_num = 0
-
 
 def clean_state():
     """Reset all databases to pristine state."""
@@ -38,7 +35,6 @@ def clean_state():
         if f.exists():
             f.unlink()
     bank_db.init_db(reset=True)
-
 
 def log_test(test_id, desc, input_state, expected, actual, passed):
     report.append({
@@ -55,16 +51,12 @@ def log_test(test_id, desc, input_state, expected, actual, passed):
         print(f"         Expected: {expected}")
         print(f"         Actual:   {actual}")
 
-
-# ===========================================================================
 # SECTION 1 — FUNCTIONAL HAPPY PATH
-# ===========================================================================
+
 def section_1():
     global section_num
     section_num = 1
-    print(f"\n{'='*60}")
-    print(f"SECTION {section_num}: FUNCTIONAL HAPPY PATH")
-    print(f"{'='*60}")
+    print(f"\n--- SECTION {section_num} ---")
 
     clean_state()
 
@@ -142,16 +134,12 @@ def section_1():
             log_test(f"1.5d-{t['token_id'][:8]}", "No duplicate ledger entry",
                      "After settlement", "count=1", f"count={cnt}", cnt == 1)
 
-
-# ===========================================================================
 # SECTION 2 — EXPIRED TOKEN TEST
-# ===========================================================================
+
 def section_2():
     global section_num
     section_num = 2
-    print(f"\n{'='*60}")
-    print(f"SECTION {section_num}: EXPIRED TOKEN TEST")
-    print(f"{'='*60}")
+    print(f"\n--- SECTION {section_num} ---")
 
     clean_state()
 
@@ -230,16 +218,12 @@ def section_2():
     bank_issuance.EXPIRY_SECONDS = original_expiry
     wallet_core.EXPIRY_BUFFER_SECONDS = original_buffer  # Restore
 
-
-# ===========================================================================
 # SECTION 3 — SAME-MERCHANT DUPLICATE TEST
-# ===========================================================================
+
 def section_3():
     global section_num
     section_num = 3
-    print(f"\n{'='*60}")
-    print(f"SECTION {section_num}: SAME-MERCHANT DUPLICATE TEST")
-    print(f"{'='*60}")
+    print(f"\n--- SECTION {section_num} ---")
 
     clean_state()
     wallet_core.preload_funds("test_pass_2026", 100)
@@ -266,16 +250,12 @@ def section_3():
              f"{tx_cnt} tx, {tok_cnt} tokens",
              tx_cnt == 1 and tok_cnt == len(pkt['tokens']))
 
-
-# ===========================================================================
 # SECTION 4 — CROSS-MERCHANT REPLAY TEST
-# ===========================================================================
+
 def section_4():
     global section_num
     section_num = 4
-    print(f"\n{'='*60}")
-    print(f"SECTION {section_num}: CROSS-MERCHANT REPLAY TEST")
-    print(f"{'='*60}")
+    print(f"\n--- SECTION {section_num} ---")
 
     clean_state()
     wallet_core.preload_funds("test_pass_2026", 100)
@@ -376,16 +356,12 @@ def section_4():
     for f in [merch_a_db, merch_b_db]:
         if os.path.exists(f): os.remove(f)
 
-
-# ===========================================================================
 # SECTION 5 — REFUND VS SETTLEMENT RACE TEST
-# ===========================================================================
+
 def section_5():
     global section_num
     section_num = 5
-    print(f"\n{'='*60}")
-    print(f"SECTION {section_num}: REFUND VS SETTLEMENT RACE TEST")
-    print(f"{'='*60}")
+    print(f"\n--- SECTION {section_num} ---")
 
     clean_state()
     original_expiry = bank_issuance.EXPIRY_SECONDS
@@ -467,16 +443,12 @@ def section_5():
     bank_issuance.EXPIRY_SECONDS = original_expiry
     wallet_core.EXPIRY_BUFFER_SECONDS = original_buffer
 
-
-# ===========================================================================
 # SECTION 6 — CANONICAL HASH CONSISTENCY TEST
-# ===========================================================================
+
 def section_6():
     global section_num
     section_num = 6
-    print(f"\n{'='*60}")
-    print(f"SECTION {section_num}: CANONICAL HASH CONSISTENCY TEST")
-    print(f"{'='*60}")
+    print(f"\n--- SECTION {section_num} ---")
 
     clean_state()
 
@@ -535,16 +507,12 @@ def section_6():
     print(f"\n  Full raw_string: {raw_string}")
     print(f"  SHA256 digest:   {bank_hash.hex()}")
 
-
-# ===========================================================================
 # SECTION 7 — WALLET ATOMICITY STRESS TEST
-# ===========================================================================
+
 def section_7():
     global section_num
     section_num = 7
-    print(f"\n{'='*60}")
-    print(f"SECTION {section_num}: WALLET ATOMICITY STRESS TEST")
-    print(f"{'='*60}")
+    print(f"\n--- SECTION {section_num} ---")
 
     clean_state()
     wallet_core.preload_funds("test_pass_2026", 100)
@@ -594,16 +562,12 @@ def section_7():
     log_test("7.3", "No partial state (0 remaining UNSPENT for those IDs)",
              "After atomic update", "unspent=0", f"unspent={unspent_count}", unspent_count == 0)
 
-
-# ===========================================================================
 # SECTION 8 — INVARIANT VERIFICATION
-# ===========================================================================
+
 def section_8():
     global section_num
     section_num = 8
-    print(f"\n{'='*60}")
-    print(f"SECTION {section_num}: INVARIANT VERIFICATION")
-    print(f"{'='*60}")
+    print(f"\n--- SECTION {section_num} ---")
 
     clean_state()
 
@@ -689,16 +653,12 @@ def section_8():
     log_test("8.9b", "expire_stale_tokens() called before balance display",
              "Source inspection", "present in source", str(has_expire_bal), has_expire_bal)
 
-
-# ===========================================================================
 # SECTION 9 — PERFORMANCE SNAPSHOT
-# ===========================================================================
+
 def section_9():
     global section_num
     section_num = 9
-    print(f"\n{'='*60}")
-    print(f"SECTION {section_num}: PERFORMANCE SNAPSHOT")
-    print(f"{'='*60}")
+    print(f"\n--- SECTION {section_num} ---")
 
     clean_state()
 
@@ -748,10 +708,8 @@ def section_9():
     log_test("9.4", f"Merchant verification: {verify_ms:.1f} ms",
              "Receive+verify+store", "<1000 ms", f"{verify_ms:.1f} ms", verify_ms < 1000)
 
-
-# ===========================================================================
 # MAIN
-# ===========================================================================
+
 if __name__ == "__main__":
     print("=" * 60)
     print("ROLE A VERIFICATION SUITE — MASTER_SPEC v1.0")

@@ -15,7 +15,6 @@ from bank.issuance import issue_tokens  # type: ignore[import]
 from bank.settlement import settle_transaction  # type: ignore[import]
 from bank.refund import request_refund  # type: ignore[import]
 
-
 class TestIntegrity(unittest.TestCase):
     def setUp(self):
         self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
@@ -134,7 +133,6 @@ class TestIntegrity(unittest.TestCase):
         with get_db_connection() as c:
             for (st,) in c.execute("SELECT status FROM tokens").fetchall():
                 self.assertIn(st, ["ISSUED", "SPENT", "REFUNDED"])
-
 
 if __name__ == "__main__":
     unittest.main()

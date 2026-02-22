@@ -1,7 +1,3 @@
-"""
-Database management for the Bank module.
-Enforces strict schema compliance and atomic transactions.
-"""
 import sqlite3
 import os
 from contextlib import contextmanager
@@ -10,12 +6,8 @@ from shared.paths import BANK_DB_PATH  # type: ignore[import]
 
 DB_PATH = str(BANK_DB_PATH)
 
-
 def init_db(reset: bool = False):
-    """
-    Initialize the database schema.
-    If reset=True, drops and recreates all tables (useful for clean demo runs).
-    """
+    
     BANK_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -35,7 +27,6 @@ def init_db(reset: bool = False):
     """)
 
     # Tokens Table
-    # status: ISSUED, SPENT, REFUNDED
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS tokens (
         token_id TEXT PRIMARY KEY,
@@ -54,22 +45,16 @@ def init_db(reset: bool = False):
     conn.commit()
     conn.close()
 
-
 @contextmanager
 def get_db_connection():
-    """
-    Yields a database connection.
-    Caller is responsible for BEGIN/COMMIT/ROLLBACK on the connection.
-    """
+    
     conn = sqlite3.connect(DB_PATH)
     try:
         yield conn
     finally:
         conn.close()
 
-
 def create_account(user_id: str, initial_balance: int = 0):
-    """Create an account if it does not already exist."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         try:
@@ -81,9 +66,7 @@ def create_account(user_id: str, initial_balance: int = 0):
         except sqlite3.Error as e:
             print(f"Error creating account: {e}")
 
-
 def get_balance(user_id: str) -> int:
-    """Return the balance for a user, or 0 if the user does not exist."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
         cursor.execute("SELECT balance FROM accounts WHERE user_id = ?", (user_id,))

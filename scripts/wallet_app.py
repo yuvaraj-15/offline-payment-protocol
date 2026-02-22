@@ -5,7 +5,6 @@ import sqlite3
 from datetime import datetime
 import getpass
 
-# ---- Bootstrap ----
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from wallet import core as wallet_core  # type: ignore[import]
@@ -75,10 +74,13 @@ def menu_preload():
     print_header("1. PRELOAD FUNDS")
     try:
         amount_str = input("Enter amount: ").strip()
-        amount = int(amount_str)
+        try:
+            amount = int(amount_str)
+        except ValueError:
+            print("Enter a valid amount.")
+            return
         pwd = getpass.getpass("Enter password: ")
         
-        # Test password upfront using a public method
         try:
             wallet_core.get_or_create_identity(pwd)
         except ValueError:
@@ -96,7 +98,7 @@ def menu_preload():
         count = wallet_core.preload_funds(pwd, amount)
 
         if count == 0:
-            print("Insufficient bank balance.")
+            print("Enter a valid amount.")
             return
 
         after_counts = {}
@@ -139,7 +141,6 @@ def menu_check_balance():
             print("Invalid password.")
             return
 
-        # Expire stale tokens automatically without needing private master keys
         try:
             from wallet import database as wallet_db  # type: ignore[import]
             wallet_db.expire_stale_tokens()
@@ -198,7 +199,6 @@ def menu_pay():
         print_separator()
         
         
-        # Simulate coin selection to calculate overpayment safely
         with sqlite3.connect(WALLET_DB_PATH) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute("SELECT denomination, expiry_ts FROM tokens WHERE status='UNSPENT'").fetchall()
@@ -283,7 +283,7 @@ def menu_view_tokens():
 
         print_header("Local Tokens")
         print(f"{'Token ID':<10} | {'Amount':<6} | {'Status':<9} | {'Issued':<19} | {'Expiry'}")
-        print_separator()
+        print("-" * 62)
         
         for t in tokens_info:
             short_id = t["token_id"][:8]
@@ -292,14 +292,14 @@ def menu_view_tokens():
             issue_dt = datetime.fromtimestamp(t["issue_timestamp"]).strftime('%Y-%m-%d %H:%M:%S')
             exp_dt = datetime.fromtimestamp(t["expiry_timestamp"]).strftime('%Y-%m-%d %H:%M:%S')
             print(f"{short_id:<10} | {amt:<6} | {status:<9} | {issue_dt:<19} | {exp_dt}")
-        print_separator()
+        print("-" * 62)
         
     except Exception as e:
         print(f"Error viewing tokens: {e}")
 
 def run():
-    print_header("Offline Payment Wallet")
     
+
     if not check_wallet_exists():
         init_wallet()
         

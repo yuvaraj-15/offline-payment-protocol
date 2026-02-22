@@ -1,7 +1,3 @@
-"""
-Centralized Architecture Path Resolver
-Ensures all script modules resolve file directories securely from the absolute project root.
-"""
 from pathlib import Path
 
 # Compute absolute path to offline-payment-protocol/

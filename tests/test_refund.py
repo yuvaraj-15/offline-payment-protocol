@@ -14,7 +14,6 @@ from bank.issuance import issue_tokens  # type: ignore[import]
 from bank.settlement import settle_transaction  # type: ignore[import]
 from bank.refund import request_refund  # type: ignore[import]
 
-
 class TestRefund(unittest.TestCase):
     def setUp(self):
         self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
@@ -82,7 +81,6 @@ class TestRefund(unittest.TestCase):
             mt.time.return_value = self.future
             request_refund("Alice", self.tokens[0].token_id)
         self.assertEqual(get_balance("Alice"), before + denom)
-
 
 if __name__ == "__main__":
     unittest.main()

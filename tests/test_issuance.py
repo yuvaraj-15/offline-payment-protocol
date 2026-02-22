@@ -10,7 +10,6 @@ from shared.constants import EXPIRY_SECONDS  # type: ignore[import]
 from bank.database import init_db, create_account, get_balance  # type: ignore[import]
 from bank.issuance import issue_tokens  # type: ignore[import]
 
-
 class TestIssuance(unittest.TestCase):
     def setUp(self):
         self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
@@ -62,7 +61,6 @@ class TestIssuance(unittest.TestCase):
         tokens = issue_tokens(self.key, "Alice", 350)
         after = get_balance("Alice")
         self.assertEqual(before, after + sum(t.denomination for t in tokens))
-
 
 if __name__ == "__main__":
     unittest.main()

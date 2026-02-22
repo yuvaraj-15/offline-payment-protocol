@@ -1,6 +1,3 @@
-"""
-Issuance logic for the Bank module.
-"""
 import uuid
 import time
 import sqlite3
@@ -13,20 +10,9 @@ from bank.database import get_db_connection  # type: ignore[import]
 
 from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
 
-
 def issue_tokens(
     private_key: "ec.EllipticCurvePrivateKey", buyer_id: str, amount: int
 ) -> "List[Token]":
-    """
-    Issue tokens to a buyer.
-    1. Validate amount is positive and a multiple of 10.
-    2. Atomic Transaction:
-       - Check balance.
-       - Deduct amount.
-       - Create tokens.
-       - Insert tokens to DB.
-    Returns list of signed Token objects.
-    """
     if amount <= 0:
         raise ValueError("Amount must be positive.")
     if amount % 10 != 0:
@@ -34,7 +20,7 @@ def issue_tokens(
 
     owner_hash = derive_owner_hash(buyer_id)
 
-    # Greedy denomination breakdown (largest first)
+    # Greedy denomination breakdown
     remaining = amount
     denominations: List[int] = sorted(ALLOWED_DENOMINATIONS, reverse=True)
 
@@ -62,10 +48,9 @@ def issue_tokens(
             denomination=d,
             issue_timestamp=now,
             expiry_timestamp=expiry,
-            signature="",  # placeholder; hash excludes signature field
+            signature="",
         )
 
-        # canonical_hash excludes the signature field per MASTER_SPEC Section 6
         sig = sign_data(private_key, canonical_hash(t))
         t.signature = sig
 
@@ -77,7 +62,6 @@ def issue_tokens(
         conn.execute("BEGIN IMMEDIATE")
 
         try:
-            # Check Balance
             cursor.execute(
                 "SELECT balance FROM accounts WHERE user_id = ?", (buyer_id,)
             )
@@ -91,14 +75,12 @@ def issue_tokens(
                     f"Insufficient funds. Have {current_balance}, need {amount}."
                 )
 
-            # Deduct Balance
             new_balance = current_balance - amount
             cursor.execute(
                 "UPDATE accounts SET balance = ? WHERE user_id = ?",
                 (new_balance, buyer_id),
             )
 
-            # Insert Tokens
             for t in generated_tokens:
                 cursor.execute(
                     """

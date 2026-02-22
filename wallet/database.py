@@ -1,8 +1,3 @@
-"""Wallet Database (Encrypted SQLite).
-
-Handles local storage of confidential tokens and keys.
-All sensitive data is encrypted at rest using the User's derived key.
-"""
 import sqlite3
 import json
 import time
@@ -19,8 +14,6 @@ DB_PATH = str(WALLET_DB_PATH)
 @contextmanager
 def get_db():
     WALLET_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    # isolation_level=None disables Python's implicit transaction management.
-    # This is required so explicit BEGIN IMMEDIATE / COMMIT / ROLLBACK work correctly.
     conn = sqlite3.connect(DB_PATH, isolation_level=None)
     conn.row_factory = sqlite3.Row
     try:
@@ -28,19 +21,15 @@ def get_db():
     finally:
         conn.close()
 
-
 def init_db(reset: bool = False):
-    """Initialize the encrypted wallet database."""
     if reset:
-        # In a real app, we might backup first. For this proto, we drop.
-        pass  # We'll rely on DROP TABLE IF EXISTS below
+        pass
 
     with get_db() as conn:
         if reset:
             conn.execute("DROP TABLE IF EXISTS config")
             conn.execute("DROP TABLE IF EXISTS tokens")
 
-        # Config: Stores salt (plaintext) and encrypted user_id
         conn.execute("""
             CREATE TABLE IF NOT EXISTS config (
                 key TEXT PRIMARY KEY,
@@ -48,9 +37,6 @@ def init_db(reset: bool = False):
             )
         """)
 
-        # Tokens: Stores encrypted token blobs
-        # Metadata (expiry, denomination, status) is PLAINTEXT for strict querying
-        # Payload is ENCRYPTED
         conn.execute("""
             CREATE TABLE IF NOT EXISTS tokens (
                 token_id TEXT PRIMARY KEY,
@@ -61,12 +47,7 @@ def init_db(reset: bool = False):
             )
         """)
 
-
 def save_config(key_name: str, value_str: str, master_key: bytes):
-    """Encrypt and save a config value (e.g., buyer_id).
-
-    Uses INSERT OR IGNORE -- never overwrites an existing entry.
-    """
     encrypted = encrypt_blob(master_key, value_str.encode("utf-8"))
     with get_db() as conn:
         conn.execute(
@@ -74,19 +55,15 @@ def save_config(key_name: str, value_str: str, master_key: bytes):
             (key_name, encrypted)
         )
 
-
 def has_config(key_name: str) -> bool:
-    """Return True if the config key row exists (regardless of password)."""
     with get_db() as conn:
         row = conn.execute(
             "SELECT 1 FROM config WHERE key = ?", (key_name,)
         ).fetchone()
         return row is not None
-    return False  # unreachable; satisfies Pyre2 missing-return check
-
+    return False
 
 def load_config(key_name: str, master_key: bytes) -> Optional[str]:
-    """Load and decrypt a config value."""
     with get_db() as conn:
         row = conn.execute("SELECT value FROM config WHERE key = ?", (key_name,)).fetchone()
         if not row:
@@ -98,12 +75,7 @@ def load_config(key_name: str, master_key: bytes) -> Optional[str]:
         except InvalidTag:
             raise ValueError("Decryption failed. Wrong password?")
 
-
 def store_tokens(tokens: List[Token], master_key: bytes):
-    """Encrypt and store newly issued tokens.
-
-    Status defaults to 'UNSPENT'.
-    """
     with get_db() as conn:
         conn.execute("BEGIN")
         for t in tokens:
@@ -118,13 +90,7 @@ def store_tokens(tokens: List[Token], master_key: bytes):
             """, (t.token_id, t.denomination, t.expiry_timestamp, encrypted))
         conn.execute("COMMIT")
 
-
 def expire_stale_tokens() -> int:
-    """Sweep UNSPENT tokens whose expiry_ts < now and transition to EXPIRED.
-
-    MUST be called before any balance display or payment selection.
-    Returns: number of tokens transitioned to EXPIRED.
-    """
     now = int(time.time())
     with get_db() as conn:
         conn.execute("BEGIN IMMEDIATE")
@@ -134,15 +100,9 @@ def expire_stale_tokens() -> int:
         )
         conn.execute("COMMIT")
         return cursor.rowcount
-    return 0  # unreachable; satisfies Pyre2 missing-return check
-
+    return 0
 
 def list_unspent_tokens(master_key: bytes) -> List[Token]:
-    """Retrieve and decrypt all UNSPENT tokens.
-
-    Callers MUST call expire_stale_tokens() before this to ensure
-    no expired tokens remain in UNSPENT status.
-    """
     with get_db() as conn:
         rows = conn.execute(
             "SELECT payload FROM tokens WHERE status = 'UNSPENT'"
@@ -155,19 +115,9 @@ def list_unspent_tokens(master_key: bytes) -> List[Token]:
         tokens.append(Token(**data))
     return tokens
 
-
 def mark_tokens_spent(token_ids: List[str]) -> bool:
-    """Atomically mark tokens as SPENT.
-
-    Uses BEGIN IMMEDIATE to acquire exclusive write lock.
-    Strict Rule: Only transition UNSPENT -> SPENT.
-    Returns: True if ALL requested tokens were successfully transitioned.
-             False if ANY token was missing or not UNSPENT (full rollback).
-    """
     with get_db() as conn:
         try:
-            # BEGIN IMMEDIATE acquires a RESERVED lock immediately,
-            # preventing concurrent writers from interleaving.
             conn.execute("BEGIN IMMEDIATE")
 
             placeholders = ",".join("?" for _ in token_ids)
@@ -186,7 +136,6 @@ def mark_tokens_spent(token_ids: List[str]) -> bool:
                 conn.execute("COMMIT")
                 return True
             else:
-                # Mismatch: some tokens were not UNSPENT or missing.
                 conn.execute("ROLLBACK")
                 return False
         except sqlite3.Error as e:
@@ -195,4 +144,4 @@ def mark_tokens_spent(token_ids: List[str]) -> bool:
             except sqlite3.Error:
                 pass
             raise RuntimeError(f"Database error during mark_tokens_spent: {e}") from e
-    return False  # unreachable; satisfies Pyre2 missing-return check
+    return False

@@ -6,10 +6,8 @@ import threading
 import os
 import time
 
-# ---- Bootstrap ----
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Suppress debug logs
 logging.getLogger().setLevel(logging.CRITICAL)
 
 from merchant import transport as merch_transport  # type: ignore[import]
@@ -49,10 +47,8 @@ def check_merchant_identity() -> str:
     return merchant_id
 
 def poll_new_transactions():
-    """Background thread that polls for new transactions and prints the summary."""
     last_tx_set: set[str] = set()
     
-    # Initialize seen transactions so we don't print history
     try:
         with get_db() as conn:
             rows = conn.execute("SELECT transaction_id FROM transactions").fetchall()
@@ -64,7 +60,6 @@ def poll_new_transactions():
         time.sleep(1.0) # Check every second
         try:
             with get_db() as conn:
-                # Fetch all transactions to see if there are new ones
                 rows = conn.execute(
                     "SELECT transaction_id, buyer_id_hash, total_amount, timestamp, requested_amount, buyer_display_name "
                     "FROM transactions"
@@ -95,9 +90,10 @@ def poll_new_transactions():
                             print("\n" + "-" * 40)
                             print("Payment Received")
                             print("-" * 40)
-                            print(f"Customer Name  : {buyer_name}")
-                            print(f"Customer Hash  : {cust_hash}")
-                            print(f"Requested Amt  : {req_amount}")
+                            print(f"Transaction ID  : {tx_id}")
+                            print(f"Customer Name   : {buyer_name}")
+                            print(f"Customer Hash   : {cust_hash}")
+                            print(f"Requested Amt   : {req_amount}")
                             print(f"Token Value    : {amount_recd}")
                             print(f"Change Due     : {change}")
                             print(f"Tokens Count   : {tok_count}")
@@ -114,14 +110,12 @@ def menu_start_server(mid: str):
     print_header("1. START PAYMENT SERVER")
     print("Starting server... Press 'q' in QR window or Ctrl+C to stop.")
     
-    # Start the polling thread only once
     if not _poller_started:
         poller = threading.Thread(target=poll_new_transactions, daemon=True)
         poller.start()
         _poller_started = True
     
     try:
-        # Blocks indefinitely under normal circumstances. Use headless=False to show QR.
         merch_transport.start_server(mid, headless=False)
     except KeyboardInterrupt:
         print("\nServer stopped.")
@@ -138,13 +132,13 @@ def menu_view_pending():
             ).fetchall()
             
         print(f"{'Transaction ID':<14} | {'Amount':<6} | {'Timestamp'}")
-        print_separator()
+        print("-" * 45)
         for r in rows:
             tx = r["transaction_id"][:8]
             amt = str(r["total_amount"])
             dt = datetime.datetime.fromtimestamp(r["timestamp"]).strftime('%Y-%m-%d %H:%M:%S')
             print(f"{tx:<14} | {amt:<6} | {dt}")
-        print_separator()
+        print("-" * 45)
     except Exception as e:
         print(f"Error viewing pending: {e}")
 
@@ -158,20 +152,19 @@ def menu_view_settled():
             ).fetchall()
             
         print(f"{'Transaction ID':<14} | {'Amount':<6} | {'Transaction Time'}")
-        print_separator()
+        print("-" * 50)
         for r in rows:
             tx = r["transaction_id"][:8]
             amt = str(r["total_amount"])
             dt = datetime.datetime.fromtimestamp(r["timestamp"]).strftime('%Y-%m-%d %H:%M:%S')
             print(f"{tx:<14} | {amt:<6} | {dt}")
-        print_separator()
+        print("-" * 50)
     except Exception as e:
         print(f"Error viewing settled: {e}")
 
 def menu_settle():
     print_header("4. SETTLE WITH BANK")
     try:
-        # Pre-calculate to determine what was successfully credited in this run
         with get_db() as conn:
             pending = conn.execute(
                 "SELECT transaction_id, total_amount "
@@ -179,7 +172,6 @@ def menu_settle():
             ).fetchall()
             pending_dict = {r["transaction_id"]: r["total_amount"] for r in pending}
 
-        # Call strictly public settlement logic without stdout redirection
         count = merch_settlement.settle_pending_transactions()
 
         with get_db() as conn:
@@ -188,7 +180,6 @@ def menu_settle():
             ).fetchall()
             settled_ids = {r["transaction_id"] for r in settled}
 
-        # Compute amount based on delta of status
         credited = sum(pending_dict[tx_id] for tx_id in pending_dict if tx_id in settled_ids)
 
         print_header("Settlement Summary")

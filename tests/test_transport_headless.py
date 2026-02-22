@@ -25,7 +25,6 @@ from bank import database as bank_db  # type: ignore[import]
 from bank import keys as bank_main  # type: ignore[import]
 from merchant import database as merch_db  # type: ignore[import]
 
-
 def run_test() -> None:
     print("--- HEADLESS TCP TRANSPORT TEST ---")
 
@@ -133,7 +132,6 @@ def run_test() -> None:
         except Exception:
             proc.kill()
         print("\n[Cleanup] Merchant stopped.")
-
 
 if __name__ == "__main__":
     run_test()

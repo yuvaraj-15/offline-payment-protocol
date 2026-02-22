@@ -15,7 +15,6 @@ from bank.issuance import issue_tokens  # type: ignore[import]
 from bank.settlement import settle_transaction  # type: ignore[import]
 from bank.refund import request_refund  # type: ignore[import]
 
-
 class TestAtomicity(unittest.TestCase):
     def setUp(self):
         self.db_fd, self.db_path = tempfile.mkstemp(suffix=".db")
@@ -98,7 +97,6 @@ class TestAtomicity(unittest.TestCase):
         self.assertEqual(r1[token.token_id], "SETTLED")
         r2 = settle_transaction(self.pub, tx)
         self.assertEqual(r2[token.token_id], "REJECTED_DUPLICATE")
-
 
 if __name__ == "__main__":
     unittest.main()
