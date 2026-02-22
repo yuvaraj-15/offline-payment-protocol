@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 from wallet import core as wallet_core  # type: ignore[import]
 from wallet import transport as wallet_transport  # type: ignore[import]
 from bank import database as bank_db  # type: ignore[import]
-from demos import bank_demo as bank_main  # type: ignore[import]
+from bank import keys as bank_main  # type: ignore[import]
 from merchant import database as merch_db  # type: ignore[import]
 
 

@@ -3,7 +3,11 @@ import sqlite3
 import datetime
 import logging
 import threading
+import os
 import time
+
+# ---- Bootstrap ----
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Suppress debug logs
 logging.getLogger().setLevel(logging.CRITICAL)

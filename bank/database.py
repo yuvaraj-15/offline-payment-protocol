@@ -6,8 +6,9 @@ import sqlite3
 import os
 from contextlib import contextmanager
 
-# Use absolute path relative to this file so DB location is deterministic
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ledger.db")
+from shared.paths import BANK_DB_PATH  # type: ignore[import]
+
+DB_PATH = str(BANK_DB_PATH)
 
 
 def init_db(reset: bool = False):
@@ -15,6 +16,7 @@ def init_db(reset: bool = False):
     Initialize the database schema.
     If reset=True, drops and recreates all tables (useful for clean demo runs).
     """
+    BANK_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 

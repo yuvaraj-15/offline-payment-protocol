@@ -18,7 +18,7 @@ from shared.models import Token, TransactionPackage  # type: ignore[import]
 from shared.crypto import canonical_hash, verify_signature, derive_owner_hash, sign_data  # type: ignore[import]
 from shared.constants import ISSUER_ID, ALLOWED_DENOMINATIONS, EXPIRY_SECONDS  # type: ignore[import]
 from bank import database as bank_db, issuance as bank_issuance  # type: ignore[import]
-from demos import bank_demo as bank_main
+from bank import keys as bank_main  # type: ignore[import]
 from bank import settlement as bank_settlement, refund as bank_refund  # type: ignore[import]
 from wallet import database as wallet_db, core as wallet_core, crypto as wallet_crypto  # type: ignore[import]
 from merchant import database as merch_db, core as merch_core  # type: ignore[import]
@@ -33,9 +33,10 @@ section_num = 0
 
 def clean_state():
     """Reset all databases to pristine state."""
-    for f in ["wallet/wallet.db", "wallet/.salt", "merchant/merchant.db"]:
-        if os.path.exists(f):
-            os.remove(f)
+    from shared.paths import WALLET_DB_PATH, WALLET_SALT_PATH, MERCHANT_DB_PATH, BANK_DB_PATH  # type: ignore[import]
+    for f in [WALLET_DB_PATH, WALLET_SALT_PATH, MERCHANT_DB_PATH]:
+        if f.exists():
+            f.unlink()
     bank_db.init_db(reset=True)
 
 

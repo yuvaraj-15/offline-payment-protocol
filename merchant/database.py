@@ -8,10 +8,13 @@ import json
 from contextlib import contextmanager
 from typing import Optional
 
-DB_PATH = "merchant/merchant.db"
+from shared.paths import MERCHANT_DB_PATH  # type: ignore[import]
+
+DB_PATH = str(MERCHANT_DB_PATH)
 
 @contextmanager
 def get_db():
+    MERCHANT_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     try:

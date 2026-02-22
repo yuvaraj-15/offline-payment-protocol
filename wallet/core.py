@@ -15,7 +15,7 @@ from shared.models import Token  # type: ignore[import]
 from shared.crypto import derive_owner_hash  # type: ignore[import]
 from wallet import crypto, database  # type: ignore[import]
 from bank import issuance  # type: ignore[import]
-from demos import bank_demo as bank_main
+from bank import keys as bank_main  # type: ignore[import]
 
 # Constants
 EXPIRY_BUFFER_SECONDS = 60  # Buffer to accidental expiry during transfer
@@ -35,12 +35,14 @@ def _get_master_key(password: str) -> bytes:
     
     # Check if salt file exists
     import os
-    if os.path.exists("wallet/.salt"):
-        with open("wallet/.salt", "rb") as f:
+    from shared.paths import WALLET_SALT_PATH  # type: ignore[import]
+    if WALLET_SALT_PATH.exists():
+        with open(WALLET_SALT_PATH, "rb") as f:
             salt = f.read()
     else:
+        WALLET_SALT_PATH.parent.mkdir(parents=True, exist_ok=True)
         key, salt = crypto.derive_key(password) # Generate new
-        with open("wallet/.salt", "wb") as f:
+        with open(WALLET_SALT_PATH, "wb") as f:
             f.write(salt)
         return key
 
@@ -61,8 +63,9 @@ def get_or_create_identity(password: str, display_name: Optional[str] = None) ->
     _get_master_key itself creates the .salt file when it is missing.
     """
     import os
+    from shared.paths import WALLET_SALT_PATH  # type: ignore[import]
     # Capture before key derivation — _get_master_key will create .salt if absent.
-    salt_existed_before = os.path.exists("wallet/.salt")
+    salt_existed_before = WALLET_SALT_PATH.exists()
     key = _get_master_key(password)
 
     if not salt_existed_before:
@@ -228,3 +231,44 @@ def create_payment_packet(password: str, merchant_id: str, amount: int) -> str:
     }
     
     return json.dumps(packet, indent=2)
+
+def get_local_token_details(password: str) -> List[dict]:
+    """Retrieve detailed token information including issuance timestamp, securely."""
+    import json
+    import sqlite3
+    from cryptography.exceptions import InvalidTag  # type: ignore[import]
+    
+    key = _get_master_key(password)
+    results = []
+    
+    with database.get_db() as conn:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT token_id, denomination, status, payload FROM tokens").fetchall()
+        
+    for r in rows:
+        token_id = r["token_id"]
+        denom = r["denomination"]
+        status = r["status"]
+        
+        issue_ts = 0
+        expiry_ts = 0
+        
+        try:
+            json_bytes = crypto.decrypt_blob(key, r["payload"])
+            data = json.loads(json_bytes)
+            issue_ts = data.get("issue_timestamp", 0)
+            expiry_ts = data.get("expiry_timestamp", 0)
+        except InvalidTag:
+            pass  # Incorrect password or corrupted payload
+        except json.JSONDecodeError:
+            pass  # Corrupted JSON inside payload
+            
+        results.append({
+            "token_id": token_id,
+            "denomination": denom,
+            "status": status,
+            "issue_timestamp": issue_ts,
+            "expiry_timestamp": expiry_ts
+        })
+        
+    return results

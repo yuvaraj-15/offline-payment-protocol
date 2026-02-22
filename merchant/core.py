@@ -18,7 +18,8 @@ def _load_bank_public_key() -> Any:
     """Load the Bank's public key for signature verification."""
     # In a real app, this is hardcoded or trusted-pinned.
     # Here we load from file (exported by Bank).
-    path = "bank/public_key.pem"
+    from shared.paths import BANK_PUB_KEY_PATH  # type: ignore[import]
+    path = str(BANK_PUB_KEY_PATH)
     if not os.path.exists(path):
         raise RuntimeError("Bank Public Key not found. Bank module must run first.")
         

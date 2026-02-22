@@ -5,6 +5,9 @@ import sqlite3
 from datetime import datetime
 import getpass
 
+# ---- Bootstrap ----
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from wallet import core as wallet_core  # type: ignore[import]
 from wallet import transport as wallet_transport  # type: ignore[import]
 
@@ -16,8 +19,10 @@ def print_header(title: str):
     print(title)
     print_separator()
 
+from shared.paths import WALLET_SALT_PATH, WALLET_DB_PATH  # type: ignore[import]
+
 def check_wallet_exists() -> bool:
-    return os.path.exists("wallet/.salt") and os.path.exists("wallet/wallet.db")
+    return WALLET_SALT_PATH.exists() and WALLET_DB_PATH.exists()
 
 def init_wallet():
     print("No wallet found.")
@@ -46,7 +51,7 @@ def menu_view_identity():
     try:
         from wallet import crypto as wallet_crypto  # type: ignore[import]
         from wallet import database as wallet_db  # type: ignore[import]
-        with open("wallet/.salt", "rb") as f:
+        with open(WALLET_SALT_PATH, "rb") as f:
             salt = f.read()
         key, _ = wallet_crypto.derive_key(pwd, salt)
         
@@ -81,7 +86,7 @@ def menu_preload():
             return
 
         before_counts = {}
-        with sqlite3.connect("wallet/wallet.db") as conn:
+        with sqlite3.connect(WALLET_DB_PATH) as conn:
             rows_before = conn.execute("SELECT denomination FROM tokens WHERE status='UNSPENT'").fetchall()
             for r in rows_before:
                 d = r[0]
@@ -95,7 +100,7 @@ def menu_preload():
             return
 
         after_counts = {}
-        with sqlite3.connect("wallet/wallet.db") as conn:
+        with sqlite3.connect(WALLET_DB_PATH) as conn:
             rows_after = conn.execute("SELECT denomination FROM tokens WHERE status='UNSPENT'").fetchall()
             for r in rows_after:
                 d = r[0]
@@ -141,7 +146,7 @@ def menu_check_balance():
         except Exception:
             pass
 
-        with sqlite3.connect("wallet/wallet.db") as conn:
+        with sqlite3.connect(WALLET_DB_PATH) as conn:
             rows_unspent = conn.execute("SELECT denomination FROM tokens WHERE status='UNSPENT'").fetchall()
             unspent_cnt = len(rows_unspent)
             unspent_sum = sum(r[0] for r in rows_unspent)
@@ -194,7 +199,7 @@ def menu_pay():
         
         
         # Simulate coin selection to calculate overpayment safely
-        with sqlite3.connect("wallet/wallet.db") as conn:
+        with sqlite3.connect(WALLET_DB_PATH) as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute("SELECT denomination, expiry_ts FROM tokens WHERE status='UNSPENT'").fetchall()
             
@@ -274,20 +279,19 @@ def menu_view_tokens():
         except Exception:
             pass
 
-        with sqlite3.connect("wallet/wallet.db") as conn:
-            conn.row_factory = sqlite3.Row
-            rows = conn.execute("SELECT token_id, denomination, status, expiry_ts FROM tokens").fetchall()
+        tokens_info = wallet_core.get_local_token_details(pwd)
 
         print_header("Local Tokens")
-        print(f"{'Token ID':<10} | {'Amount':<6} | {'Status':<9} | {'Expiry'}")
+        print(f"{'Token ID':<10} | {'Amount':<6} | {'Status':<9} | {'Issued':<19} | {'Expiry'}")
         print_separator()
         
-        for r in rows:
-            short_id = r["token_id"][:8]
-            amt = str(r["denomination"])
-            status = r["status"]
-            dt = datetime.fromtimestamp(r["expiry_ts"]).strftime('%Y-%m-%d %H:%M:%S')
-            print(f"{short_id:<10} | {amt:<6} | {status:<9} | {dt}")
+        for t in tokens_info:
+            short_id = t["token_id"][:8]
+            amt = str(t["denomination"])
+            status = t["status"]
+            issue_dt = datetime.fromtimestamp(t["issue_timestamp"]).strftime('%Y-%m-%d %H:%M:%S')
+            exp_dt = datetime.fromtimestamp(t["expiry_timestamp"]).strftime('%Y-%m-%d %H:%M:%S')
+            print(f"{short_id:<10} | {amt:<6} | {status:<9} | {issue_dt:<19} | {exp_dt}")
         print_separator()
         
     except Exception as e:

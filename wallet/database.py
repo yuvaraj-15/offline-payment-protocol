@@ -12,10 +12,13 @@ from contextlib import contextmanager
 from shared.models import Token  # type: ignore[import]
 from wallet.crypto import encrypt_blob, decrypt_blob  # type: ignore[import]
 
-DB_PATH = "wallet/wallet.db"
+from shared.paths import WALLET_DB_PATH  # type: ignore[import]
+
+DB_PATH = str(WALLET_DB_PATH)
 
 @contextmanager
 def get_db():
+    WALLET_DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     # isolation_level=None disables Python's implicit transaction management.
     # This is required so explicit BEGIN IMMEDIATE / COMMIT / ROLLBACK work correctly.
     conn = sqlite3.connect(DB_PATH, isolation_level=None)

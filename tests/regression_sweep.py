@@ -10,7 +10,7 @@ os.environ["MERCHANT_TEST_LOOPBACK"] = "1"
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from bank import database as bank_db, issuance as bank_issuance  # type: ignore[import]
-from demos import bank_demo as bank_main
+from bank import keys as bank_main  # type: ignore[import]
 from bank import settlement as bank_settlement, refund as bank_refund  # type: ignore[import]
 from merchant import core as merch_core, database as merch_db  # type: ignore[import]
 from wallet import core as wallet_core, database as wallet_db  # type: ignore[import]
@@ -32,7 +32,8 @@ def clean_all():
     wallet_db.init_db(reset=True)
     merch_db.init_db(reset=True)
     bank_db.init_db(reset=True)
-    for f in ["wallet/.salt", "wallet/wallet.db"]:
+    from shared.paths import WALLET_SALT_PATH, WALLET_DB_PATH  # type: ignore[import]
+    for f in [WALLET_SALT_PATH, WALLET_DB_PATH]:
         if os.path.exists(f): os.remove(f)
 
 def preload(amount=500, pwd="sweep_pass"):

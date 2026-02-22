@@ -11,8 +11,9 @@ from bank.database import init_db as b_init  # type: ignore[import]
 
 def reset_wallet():
     print("Resetting Wallet Identity & Database...")
-    if os.path.exists('wallet/.salt'):
-        os.remove('wallet/.salt')
+    from shared.paths import WALLET_SALT_PATH  # type: ignore[import]
+    if WALLET_SALT_PATH.exists():
+        os.remove(WALLET_SALT_PATH)
         print(" -> Deleted wallet/.salt")
     else:
         print(" -> No wallet/.salt found.")
