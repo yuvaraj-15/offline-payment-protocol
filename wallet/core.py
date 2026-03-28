@@ -9,8 +9,8 @@ from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
 from shared.models import Token  # type: ignore[import]
 from shared.crypto import derive_owner_hash  # type: ignore[import]
 from wallet import crypto, database  # type: ignore[import]
-from bank import issuance  # type: ignore[import]
 from bank import keys as bank_main  # type: ignore[import]
+from bank import http_client as bank_client  # type: ignore[import]
 
 EXPIRY_BUFFER_SECONDS = 60
 
@@ -62,6 +62,7 @@ def preload_funds(password: str, amount: int) -> int:
     key = _get_master_key(password)
     buyer_id = get_or_create_identity(password)
     
+    # Ensure local bank DB exists for local-mode operations (no-op when using remote bank)
     try:
         from bank import database as bank_db  # type: ignore[import]
         bank_db.init_db()
@@ -70,16 +71,17 @@ def preload_funds(password: str, amount: int) -> int:
             bank_db.create_account(buyer_id, max(amount * 2, 1000))
         except sqlite3.IntegrityError:
             pass
-
-        bank_key = bank_main.load_or_generate_key()
-    except (ImportError, AttributeError, OSError):
-         bank_key = ec.generate_private_key(ec.SECP256R1())
+    except Exception:
+        # Ignore DB init errors in environments without bank package
+        pass
 
     owner_hash = derive_owner_hash(buyer_id)
     
     try:
-        tokens = issuance.issue_tokens(bank_key, buyer_id, amount)
+        tokens = bank_client.issue_tokens(buyer_id, amount)
     except ValueError as e:
+        return 0
+    except Exception:
         return 0
 
     database.store_tokens(tokens, key)

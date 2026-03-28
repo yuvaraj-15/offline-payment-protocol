@@ -386,4 +386,80 @@ Any such suggestion must be rejected.
 
 ---
 
+# 13. DEPLOYMENT AND RUNNING (GUI AND SERVER)
+
+This repository provides both command-line and desktop GUI interfaces for the Wallet and Merchant, plus an optional centralized HTTP Bank service for online issuance and settlement. The following rules describe supported runtime modes and developer guidance.
+
+13.1 Supported Modes
+
+* Offline-only mode (no central bank): Wallet and Merchant run locally, using local SQLite databases and local issuance routines for testing.
+* Centralized Bank mode (optional): A FastAPI-based HTTP Bank exposes issuance and settlement endpoints. Wallet and Merchant may be configured to call the central bank via an HTTP client wrapper; when not configured they fall back to local library calls.
+
+13.2 Command-line vs Desktop GUI
+
+* CLI tools (in `scripts/`) provide a reproducible terminal-driven flow. They are suitable for headless environments and automated tests.
+* Desktop GUI (Tkinter) provides a convenience front-end for manual demonstrations. GUI is a thin wrapper around the same `wallet.core` and `merchant.settlement` logic. GUI must not change protocol rules.
+
+13.3 Recommended developer run steps (short)
+
+1. Create and activate a Python virtual environment.
+2. Install dependencies: `cryptography`, `fastapi`, `uvicorn`, `httpx` (only required for HTTP mode).
+3. Start the bank server (optional):
+  - `export BANK_ALLOW_DEV=true` (dev-only) then `python3 scripts/bank_server.py` or use uvicorn with reload.
+4. Launch GUI (or CLI): `python3 scripts/gui_launcher.py` or `python3 scripts/wallet_app.py` / `python3 scripts/merchant_app.py`.
+
+Always run bank server in the same Python environment as the client GUI/CLI when testing HTTP mode.
+
+# 14. CENTRALIZED BANK HTTP API (OPTIONAL)
+
+This project includes an optional HTTP API for the Bank to facilitate centralized issuance and settlement. This API is a convenience layer and does not change the canonical protocol. Clients MUST be backward compatible with local-mode operation.
+
+14.1 Endpoints (summary)
+
+* GET /health — basic health check; returns 200 and {"status":"ok"}.
+* GET /api/v1/public_key — returns PEM public key for signature verification (may be protected by API key).
+* POST /api/v1/issue — request issuance of tokens. Payload: {"buyer_id": "Buyer-...", "amount": 100, "request_id": "optional"}. Returns issued tokens array on success.
+* POST /api/v1/settle — submit a transaction package for settlement. Payload: transaction package JSON defined in §7. Returns per-token settlement results.
+
+14.2 Security and Idempotency
+
+* API calls SHOULD be protected via an API key (header `X-API-Key`) in production. A development override (`BANK_ALLOW_DEV=true`) exists for local testing only.
+* The server SHOULD implement idempotency for issuance (deduplicate by `request_id`) and settlement (deduplicate by `transaction_id`), but the presence of a `request_id`/`transaction_id` is optional for basic clients. Implementations MUST handle retries gracefully (at-most-once semantics are not enforced by the spec; clients should implement retry/backoff).
+
+14.3 Client wrapper contract
+
+* Clients use a wrapper that: if `BANK_HTTP_URL` is set, performs HTTP requests; otherwise calls local library functions (preserves offline-first behavior).
+* The wrapper MUST preserve data types required by the server: `amount` must be an integer (multiples of 10), `buyer_id` must be the exact buyer identifier used in the wallet database.
+
+# 15. GUI SPEC (DEMONSTRATION-ONLY)
+
+The GUI is a demonstration tool and not part of the core protocol. It must follow these constraints:
+
+15.1 Wallet GUI
+
+* Identity: allows creating or loading a wallet. When creating, GUI prompts for a password and a display name. The wallet stores a local salt and encrypted config (`buyer_id` and optional `buyer_display_name`).
+* Preload Funds: prompts for password and amount, calls `wallet.core.preload_funds` and writes tokens into the local encrypted token store.
+* View Tokens: lists local tokens (id prefix, denomination, status, expiry).
+* Pay Merchant: creates a payment packet using local tokens and sends it over the merchant transport.
+
+15.2 Merchant GUI
+
+* Identity: create/load merchant id and display name.
+* Payment Server: starts merchant transport in headless mode (spawns a subprocess) to accept wallet connections.
+* View Transactions: inspect local `transactions` table and pending tokens.
+* Settle Pending: triggers `merchant.settlement.settle_pending_transactions()` which either posts to central bank (if configured) or performs local settlement logic.
+
+15.3 Thread-safety and UX
+
+* GUI must not call Tkinter APIs from background threads. All UI updates (message boxes, labels) must be scheduled on the main Tk thread.
+* GUI must surface errors returned by underlying library functions (wrong password, invalid amount, network error) in a clear dialog and must not swallow exceptions silently.
+
+# 16. DEVELOPMENT NOTES (CHANGELOG AND TESTING)
+
+* The canonical protocol (hashing, token fields, cryptography, denominations, expiry) is frozen and cannot be changed without an explicit specification revision.
+* GUI, CLI, and HTTP convenience layers are non-authoritative interfaces and may evolve. Any functional change that affects token fields, canonical hashing, or the cryptographic contract MUST be reflected here and rejected if it alters the frozen rules.
+* Unit and integration tests MUST include: verification of canonical hash, signature generation/verification, issuance/settlement atomicity, refund paths, and end-to-end token lifecycle in both local and HTTP modes.
+
+---
+
 # END OF SPECIFICATION
