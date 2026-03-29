@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, simpledialog
 import sqlite3
 import json
 from datetime import datetime
@@ -11,7 +11,12 @@ from shared.paths import WALLET_DB_PATH, WALLET_SALT_PATH
 
 class WalletGUI:
 
+    def notify(self, msg):
+        self.output.insert("end", msg + "\n")
+        self.output.see("end")
+
     def __init__(self, root):
+
         self.root = root
         self.root.title("Offline Payment Wallet")
         self.root.geometry("650x500")
@@ -34,15 +39,27 @@ class WalletGUI:
         self.output = tk.Text(root, height=15)
         self.output.pack(fill="both", expand=True, padx=10, pady=10)
 
-    def log(self, text):
-        self.output.insert("end", text + "\n")
-        self.output.see("end")
-
     def ask_password(self):
-        pwd = simpledialog.askstring("Password", "Enter wallet password", show="*")
-        return pwd
+        return simpledialog.askstring("Password", "Enter wallet password", show="*")
+
+    def create_wallet(self, pwd):
+
+        name = simpledialog.askstring("Create Wallet", "Enter Display Name")
+
+        if not name:
+            self.notify("Wallet creation cancelled")
+            return False
+
+        try:
+            wallet_core.get_or_create_identity(pwd, display_name=name)
+            self.notify(f"Wallet created for {name}")
+            return True
+        except Exception as e:
+            self.notify(f"Wallet creation failed: {e}")
+            return False
 
     def load_wallet(self):
+
         pwd = self.ask_password()
         if not pwd:
             return
@@ -50,13 +67,29 @@ class WalletGUI:
         try:
             wallet_core.get_or_create_identity(pwd)
             self.pwd = pwd
-            messagebox.showinfo("Wallet", "Wallet loaded successfully")
+            self.notify("Wallet loaded successfully")
+
         except Exception:
-            messagebox.showerror("Error", "Invalid password")
+
+            self.notify("Wallet not found or invalid password")
+
+            create = simpledialog.askstring(
+                "Create Wallet",
+                "Wallet does not exist.\nEnter display name to create one:"
+            )
+
+            if create:
+                try:
+                    wallet_core.get_or_create_identity(pwd, display_name=create)
+                    self.pwd = pwd
+                    self.notify(f"Wallet created for {create}")
+                except Exception as e:
+                    self.notify(f"Wallet creation failed: {e}")
 
     def preload_funds(self):
+
         if not self.pwd:
-            messagebox.showwarning("Wallet", "Load wallet first")
+            self.notify("Load wallet first")
             return
 
         amount = simpledialog.askinteger("Preload Funds", "Enter amount")
@@ -65,13 +98,14 @@ class WalletGUI:
 
         try:
             count = wallet_core.preload_funds(self.pwd, amount)
-            messagebox.showinfo("Success", f"{amount} loaded\nTokens issued: {count}")
+            self.notify(f"SUCCESS: {amount} loaded | Tokens issued: {count}")
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            self.notify(f"Error: {e}")
 
     def check_balance(self):
+
         if not self.pwd:
-            messagebox.showwarning("Wallet", "Load wallet first")
+            self.notify("Load wallet first")
             return
 
         try:
@@ -81,6 +115,7 @@ class WalletGUI:
             pass
 
         with sqlite3.connect(WALLET_DB_PATH) as conn:
+
             rows = conn.execute(
                 "SELECT denomination FROM tokens WHERE status='UNSPENT'"
             ).fetchall()
@@ -89,6 +124,7 @@ class WalletGUI:
             count = len(rows)
 
             counts = {}
+
             for r in rows:
                 d = r[0]
                 counts[d] = counts.get(d, 0) + 1
@@ -103,18 +139,50 @@ class WalletGUI:
 
         self.output.delete("1.0", "end")
 
-        self.log(f"Total Balance : {total}")
-        self.log(f"Unspent Tokens: {count}")
+        self.notify(f"Total Balance : {total}")
+        self.notify(f"Unspent Tokens: {count}")
 
         for d in sorted(counts.keys(), reverse=True):
-            self.log(f"   {d} x {counts[d]}")
+            self.notify(f"   {d} x {counts[d]}")
 
-        self.log(f"Spent Tokens  : {spent}")
-        self.log(f"Expired Tokens: {expired}")
+        self.notify(f"Spent Tokens  : {spent}")
+        self.notify(f"Expired Tokens: {expired}")
+
+    def confirm_dialog(self, title, message):
+
+        win = tk.Toplevel(self.root)
+        win.title(title)
+        win.geometry("320x150")
+        win.grab_set()
+
+        result = {"value": False}
+
+        frame = ttk.Frame(win, padding=15)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text=message, justify="center", wraplength=280).pack(pady=10)
+
+        btn_frame = ttk.Frame(frame)
+        btn_frame.pack(pady=10)
+
+        def yes():
+            result["value"] = True
+            win.destroy()
+
+        def no():
+            win.destroy()
+
+        ttk.Button(btn_frame, text="Yes", command=yes).pack(side="left", padx=10)
+        ttk.Button(btn_frame, text="No", command=no).pack(side="left", padx=10)
+
+        self.root.wait_window(win)
+
+        return result["value"]
 
     def pay_merchant(self):
+
         if not self.pwd:
-            messagebox.showwarning("Wallet", "Load wallet first")
+            self.notify("Load wallet first")
             return
 
         amount = simpledialog.askinteger("Payment", "Enter amount")
@@ -124,15 +192,16 @@ class WalletGUI:
         try:
             merchant_id, ip, port = wallet_transport.scan_qr()
         except Exception as e:
-            messagebox.showerror("QR Error", str(e))
+            self.notify(f"QR Error: {e}")
             return
 
-        confirm = messagebox.askyesno(
+        confirm = self.confirm_dialog(
             "Confirm Payment",
             f"Merchant: {merchant_id}\nAmount: {amount}\nProceed?"
         )
 
         if not confirm:
+            self.notify("Payment cancelled")
             return
 
         try:
@@ -142,26 +211,23 @@ class WalletGUI:
             if success:
                 data = json.loads(packet_json)
                 tx = data.get("transaction_id")
-
-                messagebox.showinfo(
-                    "Payment Successful",
-                    f"Transaction ID:\n{tx}"
-                )
+                self.notify(f"Payment Successful | Transaction ID: {tx}")
             else:
-                messagebox.showerror("Payment Failed", "Merchant rejected payment")
+                self.notify("Payment rejected by merchant")
 
         except Exception as e:
-            messagebox.showerror("Payment Failed", str(e))
+            self.notify(f"Payment Failed: {e}")
 
     def view_tokens(self):
+
         if not self.pwd:
-            messagebox.showwarning("Wallet", "Load wallet first")
+            self.notify("Load wallet first")
             return
 
         try:
             tokens = wallet_core.get_local_token_details(self.pwd)
         except Exception as e:
-            messagebox.showerror("Error", str(e))
+            self.notify(f"Error: {e}")
             return
 
         win = tk.Toplevel(self.root)
@@ -189,11 +255,13 @@ class WalletGUI:
             )
 
     def view_identity(self):
+
         pwd = self.ask_password()
         if not pwd:
             return
 
         try:
+
             from wallet import crypto as wallet_crypto
             from wallet import database as wallet_db
             import hashlib
@@ -208,20 +276,17 @@ class WalletGUI:
 
             id_hash = hashlib.sha256(buyer_id.encode()).hexdigest()
 
-            messagebox.showinfo(
-                "Wallet Identity",
-                f"Display Name : {buyer_name}\n"
-                f"Internal ID  : {buyer_id}\n"
-                f"ID Hash      : {id_hash}"
-            )
+            self.notify(f"Display Name : {buyer_name}")
+            self.notify(f"Internal ID  : {buyer_id}")
+            self.notify(f"ID Hash      : {id_hash}")
 
         except Exception:
-            messagebox.showerror("Error", "Invalid password")
+            self.notify("Invalid password")
 
 
 def run_gui():
     root = tk.Tk()
-    app = WalletGUI(root)
+    WalletGUI(root)
     root.mainloop()
 
 
