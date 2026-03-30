@@ -7,21 +7,80 @@ from datetime import datetime
 from wallet import core as wallet_core
 from wallet import transport as wallet_transport
 from shared.paths import WALLET_DB_PATH, WALLET_SALT_PATH
+import os
+
+def wallet_exists():
+    return WALLET_SALT_PATH.exists() and WALLET_DB_PATH.exists()
 
 
 class WalletGUI:
+    def create_wallet_dialog(self):
+
+        win = tk.Toplevel(self.root)
+        win.title("Create Wallet")
+        win.geometry("320x320")
+        win.grab_set()
+
+        frame = ttk.Frame(win, padding=15)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text="Create New Wallet", font=("Arial", 12, "bold")).pack(pady=5)
+
+        ttk.Label(frame, text="Display Name").pack(anchor="w")
+        name_entry = ttk.Entry(frame)
+        name_entry.pack(fill="x", pady=3)
+
+        ttk.Label(frame, text="Password").pack(anchor="w")
+        pwd_entry = ttk.Entry(frame, show="*")
+        pwd_entry.pack(fill="x", pady=3)
+
+        ttk.Label(frame, text="Confirm Password").pack(anchor="w")
+        pwd2_entry = ttk.Entry(frame, show="*")
+        pwd2_entry.pack(fill="x", pady=3)
+
+        def create_wallet():
+
+            name = name_entry.get().strip()
+            pwd = pwd_entry.get()
+            pwd2 = pwd2_entry.get()
+
+            if not name:
+                self.notify("Display name required")
+                return
+
+            if pwd != pwd2:
+                self.notify("Passwords do not match")
+                return
+
+            try:
+                wallet_core.get_or_create_identity(pwd, display_name=name)
+                self.pwd = pwd
+                self.notify(f"Wallet created for {name}")
+                win.destroy()
+            except Exception as e:
+                self.notify(f"Wallet creation failed: {e}")
+
+        ttk.Button(frame, text="Create Wallet", command=create_wallet).pack(pady=10)
+
+        self.root.wait_window(win)
 
     def notify(self, msg):
-        self.output.insert("end", msg + "\n")
-        self.output.see("end")
+        if hasattr(self, "output") and self.output:
+            self.output.insert("end", msg + "\n")
+            self.output.see("end")
+        else:
+            print(msg)   # fallback before GUI log exists
 
     def __init__(self, root):
 
         self.root = root
         self.root.title("Offline Payment Wallet")
-        self.root.geometry("650x500")
+        self.root.geometry("650x600")
 
-        self.pwd = None
+        if not wallet_exists():
+            self.create_wallet_dialog()
+        else:
+            self.notify("Wallet detected. Please load wallet.")
 
         title = ttk.Label(root, text="Offline Payment Wallet", font=("Arial", 18, "bold"))
         title.pack(pady=10)
@@ -152,7 +211,7 @@ class WalletGUI:
 
         win = tk.Toplevel(self.root)
         win.title(title)
-        win.geometry("320x150")
+        win.geometry("320x250")
         win.grab_set()
 
         result = {"value": False}

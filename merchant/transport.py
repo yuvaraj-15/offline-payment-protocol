@@ -72,7 +72,7 @@ def build_qr_payload(merchant_id):
     return payload, qr_img, lan_ip, port
 
 
-def handle_client(client_sock, client_addr, merchant_id):
+def handle_client(client_sock, client_addr, merchant_id, notify_callback=None):
 
     try:
 
@@ -95,6 +95,13 @@ def handle_client(client_sock, client_addr, merchant_id):
 
         try:
             success = core.process_payment(json_str, merchant_id)
+
+            if success and notify_callback:
+                try:
+                    notify_callback(json_str)
+                except Exception:
+                    pass
+
             ack = b"ACK_SUCCESS\n" if success else b"ACK_REJECT\n"
 
         except Exception:
@@ -110,7 +117,7 @@ def handle_client(client_sock, client_addr, merchant_id):
             pass
 
 
-def server_loop(server_sock, merchant_id):
+def server_loop(server_sock, merchant_id, notify_callback=None):
 
     while True:
 
@@ -120,7 +127,7 @@ def server_loop(server_sock, merchant_id):
 
             t = threading.Thread(
                 target=handle_client,
-                args=(client_sock, client_addr, merchant_id),
+                args=(client_sock, client_addr, merchant_id, notify_callback),
                 daemon=True,
             )
 
@@ -166,7 +173,7 @@ def start_server(merchant_id, headless=False):
     cv2.destroyAllWindows()
 
 
-def start_server_gui(merchant_id):
+def start_server_gui(merchant_id, notify_callback=None):
 
     qr_img, server_sock = start_server(merchant_id, headless=True)
 

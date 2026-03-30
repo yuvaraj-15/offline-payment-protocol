@@ -42,7 +42,33 @@ def settle_pending_transactions() -> int:
                 # Use HTTP client wrapper which will call the central bank if BANK_HTTP_URL is set,
                 # otherwise falls back to local bank.settlement implementation.
                 tx_dict = dataclasses.asdict(pkg)
-                results = bank_client.settle_transaction(tx_dict)
+
+                response = bank_client.settle_transaction(tx_dict)
+
+                # Handle both API and local bank formats
+                if isinstance(response, dict) and "results" in response:
+                    results = response["results"]
+                else:
+                    results = response
+
+                any_settled = False
+                all_settled = True
+
+                for token in pkg.tokens:
+
+                    status = results.get(token.token_id)
+
+                    if status == "SETTLED":
+
+                        conn.execute(
+                            "UPDATE received_tokens SET status = 'SETTLED' WHERE transaction_id = ? AND token_json LIKE ?",
+                            (tx_id, f"%{token.token_id}%"),
+                        )
+
+                        any_settled = True
+
+                    else:
+                        all_settled = False
 
                 # results is a mapping token_id -> status
                 any_settled = False

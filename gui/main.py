@@ -11,7 +11,7 @@ class MainGUI:
 
         self.root = tk.Tk()
         self.root.title("Offline Payment Protocol")
-        self.root.geometry("420x240")
+        self.root.geometry("600x200")
 
         ttk.Label(
             self.root,

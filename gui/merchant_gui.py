@@ -57,6 +57,19 @@ class MerchantGUI:
         qr_frame = ttk.LabelFrame(self.root, text="Merchant QR Code", padding=10)
         qr_frame.pack(padx=10, pady=10)
 
+        # Payment notification banner
+        self.banner = tk.Label(
+            self.root,
+            text="",
+            bg="#2ecc71",
+            fg="white",
+            font=("Arial", 12, "bold"),
+            pady=6
+        )
+
+        self.banner.pack(fill="x")
+        self.banner.pack_forget()  # hidden initially
+
         self.qr_label = ttk.Label(qr_frame)
         self.qr_label.pack()
 
@@ -75,6 +88,14 @@ class MerchantGUI:
 
     def notify(self, msg):
         print(msg)
+
+    def notify_popup(self, msg, duration=10000):
+
+        self.banner.config(text=msg)
+        self.banner.pack(fill="x")
+
+        # hide after duration (ms)
+        self.root.after(duration, self.banner.pack_forget)
 
     def get_db(self):
 
@@ -107,6 +128,25 @@ class MerchantGUI:
         self.name_var.set(name)
         self.id_var.set(mid)
 
+    def payment_received(self, packet_json):
+
+        import json
+
+        try:
+            data = json.loads(packet_json)
+
+            tx = data.get("transaction_id")
+            amount = data.get("requested_amount")
+            buyer = data.get("buyer_id_hash", "")[:8]
+
+            msg = f"Payment Received | ₹{amount} | Buyer {buyer}"
+
+            self.notify(msg)            # log panel
+            self.notify_popup(msg)      # popup banner
+
+        except Exception:
+            self.notify_popup("Payment received")
+
     def start_server(self):
 
         if self.server_running:
@@ -115,7 +155,10 @@ class MerchantGUI:
 
         from PIL import Image, ImageTk
 
-        qr_img, self.server_socket = merch_transport.start_server_gui(self.mid)
+        qr_img, self.server_socket = merch_transport.start_server_gui(
+            self.mid,
+            notify_callback=self.payment_received
+        )
 
         img = Image.fromarray(qr_img).resize((250, 250))
         tk_img = ImageTk.PhotoImage(img)
