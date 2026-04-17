@@ -10,17 +10,16 @@ protocol_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if protocol_root not in sys.path:
     sys.path.insert(0, protocol_root)
 
-from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
-from shared.models import Token, TransactionPackage  # type: ignore[import]
-from shared.crypto import sign_data, verify_signature, canonical_hash, derive_owner_hash  # type: ignore[import]
-from wallet.crypto import derive_key, encrypt_blob, decrypt_blob  # type: ignore[import]
-from shared.constants import ISSUER_ID, EXPIRY_SECONDS  # type: ignore[import]
+from cryptography.hazmat.primitives.asymmetric import ec  
+from shared.models import Token, TransactionPackage  
+from shared.crypto import sign_data, verify_signature, canonical_hash, derive_owner_hash  
+from wallet.crypto import derive_key, encrypt_blob, decrypt_blob  
+from shared.constants import ISSUER_ID, EXPIRY_SECONDS  
 
 def run_benchmarks():
     print("Starting Performance Benchmarks...")
     print("==================================")
     
-    # 1. Setup isolated memory artifacts
     print("[*] Generating ephemeral memory ECDSA keypair...")
     bank_private_key = ec.generate_private_key(ec.SECP256R1())
     bank_public_key = bank_private_key.public_key()
@@ -46,7 +45,6 @@ def run_benchmarks():
     iterations = 1000
     results = []
     
-    # --- ECDSA Signature Verification Time ---
     print(f"[*] Measuring ECDSA Verification Time ({iterations} iterations)...")
     c_hash = canonical_hash(sample_token)
     sig = sample_token.signature
@@ -59,7 +57,6 @@ def run_benchmarks():
     ecdsa_avg_ms = ((end_time - start_time) * 1000) / iterations
     results.append(("ECDSA Token Validation", f"{ecdsa_avg_ms:.4f} ms"))
     
-    # --- Batch Verification Time (5 and 10 tokens) ---
     batch_5 = [generate_token(10) for _ in range(5)]
     batch_10 = [generate_token(10) for _ in range(10)]
     
@@ -81,7 +78,6 @@ def run_benchmarks():
     batch_10_avg_ms = ((end_time - start_time) * 1000) / iterations
     results.append(("ECDSA Batch Validation (10x)", f"{batch_10_avg_ms:.4f} ms"))
     
-    # --- Settlement Atomic Update Time ---
     print(f"[*] Measuring Atomic SQLite UPDATES in-memory ({iterations} iterations)...")
     
     conn = sqlite3.connect(":memory:")
@@ -125,7 +121,6 @@ def run_benchmarks():
     results.append(("SQLite Atomic Update", f"{db_update_avg_ms:.4f} ms"))
     conn.close()
 
-    # --- AES-GCM Encrypt/Decrypt Time ---
     print(f"[*] Measuring AES-GCM times ({iterations} iterations)...")
     password = "benchmarkpwd123"
     aes_salt = os.urandom(16)
@@ -150,7 +145,6 @@ def run_benchmarks():
     results.append(("AES-GCM Local Encryption", f"{enc_avg_ms:.4f} ms"))
     results.append(("AES-GCM Local Decryption", f"{dec_avg_ms:.4f} ms"))
     
-    # --- Token Serialized Size ---
     print("[*] Calculating Local File & Request Byte Sizes...")
     token_json_str = json.dumps(dataclasses.asdict(sample_token))
     token_byte_len = len(token_json_str.encode('utf-8'))
@@ -159,7 +153,6 @@ def run_benchmarks():
     results.append(("Single Token JSON Payload Length", f"{token_byte_len} bytes"))
     results.append(("ECDSA Signature Length (Hex)", f"{sig_byte_len} bytes"))
     
-    # --- Full Transaction Packet Size ---
     tx_package = TransactionPackage(
         transaction_id=str(uuid.uuid4()),
         buyer_id_hash=owner_hash,
@@ -173,7 +166,6 @@ def run_benchmarks():
     tx_byte_len = len(tx_json_str.encode('utf-8'))
     results.append(("Offline Transmission Package Size", f"{tx_byte_len} bytes"))
     
-    # === Output ===
     output_lines = [
         "",
         "| Metric " + " " * 31 + " | Value (time/size) |",
@@ -185,7 +177,6 @@ def run_benchmarks():
     final_output = "\n".join(output_lines)
     print(final_output)
 
-    # Dump file
     bench_dir = os.path.dirname(__file__)
     res_file = os.path.join(bench_dir, "performance_results.txt")
     with open(res_file, "w") as f:

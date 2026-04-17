@@ -57,7 +57,6 @@ class MerchantGUI:
         qr_frame = ttk.LabelFrame(self.root, text="Merchant QR Code", padding=10)
         qr_frame.pack(padx=10, pady=10)
 
-        # Payment notification banner
         self.banner = tk.Label(
             self.root,
             text="",
@@ -68,7 +67,7 @@ class MerchantGUI:
         )
 
         self.banner.pack(fill="x")
-        self.banner.pack_forget()  # hidden initially
+        self.banner.pack_forget()  
 
         self.qr_label = ttk.Label(qr_frame)
         self.qr_label.pack()
@@ -94,7 +93,6 @@ class MerchantGUI:
         self.banner.config(text=msg)
         self.banner.pack(fill="x")
 
-        # hide after duration (ms)
         self.root.after(duration, self.banner.pack_forget)
 
     def get_db(self):
@@ -141,8 +139,8 @@ class MerchantGUI:
 
             msg = f"Payment Received | ₹{amount} | Buyer {buyer}"
 
-            self.notify(msg)            # log panel
-            self.notify_popup(msg)      # popup banner
+            self.notify(msg)            
+            self.notify_popup(msg)      
 
         except Exception:
             self.notify_popup("Payment received")

@@ -4,19 +4,19 @@ import time
 from typing import List, Tuple, Optional
 import hashlib
 
-from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
+from cryptography.hazmat.primitives.asymmetric import ec  
 
-from shared.models import Token  # type: ignore[import]
-from shared.crypto import derive_owner_hash  # type: ignore[import]
-from wallet import crypto, database  # type: ignore[import]
-from bank import keys as bank_main  # type: ignore[import]
-from bank import http_client as bank_client  # type: ignore[import]
+from shared.models import Token  
+from shared.crypto import derive_owner_hash  
+from wallet import crypto, database  
+from bank import keys as bank_main  
+from bank import http_client as bank_client  
 
 EXPIRY_BUFFER_SECONDS = 60
 
 def _get_master_key(password: str) -> bytes:
     import os
-    from shared.paths import WALLET_SALT_PATH  # type: ignore[import]
+    from shared.paths import WALLET_SALT_PATH  
     if WALLET_SALT_PATH.exists():
         with open(WALLET_SALT_PATH, "rb") as f:
             salt = f.read()
@@ -32,13 +32,13 @@ def _get_master_key(password: str) -> bytes:
 
 def get_or_create_identity(password: str, display_name: Optional[str] = None) -> str:
     import os
-    from shared.paths import WALLET_SALT_PATH  # type: ignore[import]
+    from shared.paths import WALLET_SALT_PATH  
     salt_existed_before = WALLET_SALT_PATH.exists()
     key = _get_master_key(password)
 
     if not salt_existed_before:
         database.init_db()
-        new_id = f"Buyer-{uuid.uuid4().hex}"  # Use full UUID per spec, not truncated
+        new_id = f"Buyer-{uuid.uuid4().hex}"  
         database.save_config("buyer_id", new_id, key)
         if display_name:
             database.save_config("buyer_display_name", display_name, key)
@@ -52,7 +52,7 @@ def get_or_create_identity(password: str, display_name: Optional[str] = None) ->
             raise ValueError("Config entry missing after existence check — DB may be corrupt.")
         return buyer_id
     else:
-        new_id = f"Buyer-{uuid.uuid4().hex}"  # Use full UUID per spec
+        new_id = f"Buyer-{uuid.uuid4().hex}" 
         database.save_config("buyer_id", new_id, key)
         if display_name:
             database.save_config("buyer_display_name", display_name, key)
@@ -62,9 +62,9 @@ def preload_funds(password: str, amount: int) -> int:
     key = _get_master_key(password)
     buyer_id = get_or_create_identity(password)
     
-    # Ensure local bank DB exists for local-mode operations (no-op when using remote bank)
+
     try:
-        from bank import database as bank_db  # type: ignore[import]
+        from bank import database as bank_db  
         bank_db.init_db()
         import sqlite3
         try:
@@ -72,7 +72,6 @@ def preload_funds(password: str, amount: int) -> int:
         except sqlite3.IntegrityError:
             pass
     except Exception:
-        # Ignore DB init errors in environments without bank package
         pass
 
     owner_hash = derive_owner_hash(buyer_id)
@@ -154,7 +153,7 @@ def create_payment_packet(password: str, merchant_id: str, amount: int) -> str:
 def get_local_token_details(password: str) -> List[dict]:
     import json
     import sqlite3
-    from cryptography.exceptions import InvalidTag  # type: ignore[import]
+    from cryptography.exceptions import InvalidTag  
     
     key = _get_master_key(password)
     results = []
@@ -177,9 +176,9 @@ def get_local_token_details(password: str) -> List[dict]:
             issue_ts = data.get("issue_timestamp", 0)
             expiry_ts = data.get("expiry_timestamp", 0)
         except InvalidTag:
-            pass  # Incorrect password or corrupted payload
+            pass  
         except json.JSONDecodeError:
-            pass  # Corrupted JSON inside payload
+            pass 
             
         results.append({
             "token_id": token_id,

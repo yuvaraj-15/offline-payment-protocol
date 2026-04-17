@@ -1,10 +1,10 @@
 import time
-from merchant import database  # type: ignore[import]
-from shared.models import TransactionPackage, Token  # type: ignore[import]
-from shared.crypto import derive_owner_hash  # type: ignore[import]
-from bank import settlement as bank_settlement  # type: ignore[import]
-from bank import http_client as bank_client  # type: ignore[import]
-from merchant.core import _load_bank_public_key  # type: ignore[import]
+from merchant import database  
+from shared.models import TransactionPackage, Token  
+from shared.crypto import derive_owner_hash  
+from bank import settlement as bank_settlement  
+from bank import http_client as bank_client  
+from merchant.core import _load_bank_public_key  
 import dataclasses
 
 def settle_pending_transactions() -> int:
@@ -18,7 +18,6 @@ def settle_pending_transactions() -> int:
         for tx in txs:
             tx_id = tx["transaction_id"]
             
-            # Reconstruct Package
             tok_rows = conn.execute("SELECT token_json FROM received_tokens WHERE transaction_id = ?", (tx_id,)).fetchall()
             
             tokens = []
@@ -27,7 +26,6 @@ def settle_pending_transactions() -> int:
                 t_dict = json.loads(tr["token_json"])
                 tokens.append(Token(**t_dict))
                 
-            # Construct TransactionPackage
             pkg = TransactionPackage(
                 transaction_id=tx_id,
                 buyer_id_hash=tx["buyer_id_hash"],
@@ -39,13 +37,10 @@ def settle_pending_transactions() -> int:
             )
             
             try:
-                # Use HTTP client wrapper which will call the central bank if BANK_HTTP_URL is set,
-                # otherwise falls back to local bank.settlement implementation.
                 tx_dict = dataclasses.asdict(pkg)
 
                 response = bank_client.settle_transaction(tx_dict)
 
-                # Handle both API and local bank formats
                 if isinstance(response, dict) and "results" in response:
                     results = response["results"]
                 else:
@@ -70,7 +65,6 @@ def settle_pending_transactions() -> int:
                     else:
                         all_settled = False
 
-                # results is a mapping token_id -> status
                 any_settled = False
                 all_settled = True
                 for token in pkg.tokens:
@@ -86,12 +80,10 @@ def settle_pending_transactions() -> int:
 
                 if all_settled and any_settled:
                     conn.execute("UPDATE transactions SET status = 'SETTLED' WHERE transaction_id = ?", (tx_id,))
-                    settled_count += 1  # type: ignore[operator]
+                    settled_count += 1  
                 elif any_settled:
-                    # Partial settlement: mark transaction as PARTIAL (keep PENDING) – for now we leave as PENDING
                     print(f"Partial settlement for {tx_id}: results={results}")
                 else:
-                    # No tokens settled
                     print(f"Settlement rejected for {tx_id}: results={results}")
 
             except Exception as e:

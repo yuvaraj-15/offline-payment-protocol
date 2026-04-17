@@ -1,14 +1,11 @@
 from pathlib import Path
 
-# Compute absolute path to offline-payment-protocol/
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
-# Dynamic Directories
 WALLET_DIR = PROJECT_ROOT / "wallet"
 MERCHANT_DIR = PROJECT_ROOT / "merchant"
 BANK_DIR = PROJECT_ROOT / "bank"
 
-# File Constants
 WALLET_DB_PATH = WALLET_DIR / "wallet.db"
 WALLET_SALT_PATH = WALLET_DIR / ".salt"
 

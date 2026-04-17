@@ -1,11 +1,11 @@
 import time
 from typing import Dict
 
-from shared.models import TransactionPackage  # type: ignore[import]
-from shared.crypto import verify_signature, canonical_hash  # type: ignore[import]
-from bank.database import get_db_connection  # type: ignore[import]
+from shared.models import TransactionPackage  
+from shared.crypto import verify_signature, canonical_hash  
+from bank.database import get_db_connection  
 
-from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
+from cryptography.hazmat.primitives.asymmetric import ec  
 
 def settle_transaction(
     bank_public_key: "ec.EllipticCurvePublicKey",

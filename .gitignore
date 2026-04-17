@@ -27,3 +27,52 @@ pyrightconfig.json
 .DS_Store
 Thumbs.db
 offline_payment_protocol.egg-info/
+
+
+# Additional common ignores recommended by assistant
+# Packaging / build artifacts
+build/
+dist/
+*.egg-info/
+pip-wheel-metadata/
+*.egg
+
+# Test / coverage / CI caches
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.cache/
+
+# Backup files / logs / temp
+backups/
+*.bak
+*.old
+*.orig
+*.log
+logs/
+
+# Type-checker / linter caches
+.mypy_cache/
+.pytype/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Compiled extensions / binary artifacts
+*.so
+*.dylib
+*.dll
+
+# Common temporary files
+*.tmp
+*.temp
+
+# Optional: ignore local machine-specific secret stores (uncomment if desired)
+# bank/*.pem
+# scripts/*.pem
+
+# Ignore MASTER spec and TOML manifests (user requested)
+MASTER_SPEC.md
+*.toml

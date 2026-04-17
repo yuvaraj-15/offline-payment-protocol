@@ -69,7 +69,7 @@ class WalletGUI:
             self.output.insert("end", msg + "\n")
             self.output.see("end")
         else:
-            print(msg)   # fallback before GUI log exists
+            print(msg)   
 
     def __init__(self, root):
 

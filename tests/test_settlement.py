@@ -5,14 +5,14 @@ import os
 import time as _time
 from unittest.mock import patch
 
-from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
+from cryptography.hazmat.primitives.asymmetric import ec  
 
-from shared.models import TransactionPackage  # type: ignore[import]
-from shared.crypto import derive_owner_hash  # type: ignore[import]
-from bank.database import init_db, create_account, get_balance  # type: ignore[import]
-from bank.issuance import issue_tokens  # type: ignore[import]
-from bank.settlement import settle_transaction  # type: ignore[import]
-from bank.refund import request_refund  # type: ignore[import]
+from shared.models import TransactionPackage  
+from shared.crypto import derive_owner_hash  
+from bank.database import init_db, create_account, get_balance  
+from bank.issuance import issue_tokens  
+from bank.settlement import settle_transaction  
+from bank.refund import request_refund  
 
 class TestSettlement(unittest.TestCase):
     def setUp(self):
@@ -42,20 +42,20 @@ class TestSettlement(unittest.TestCase):
             buyer_display_name="Alice"
         )
 
-    # A
+
     def test_valid_settlement(self):
         r = settle_transaction(self.pub, self._tx(self.tokens))
         for s in r.values():
             self.assertEqual(s, "SETTLED")
 
-    # B
+
     def test_duplicate_settlement(self):
         settle_transaction(self.pub, self._tx(self.tokens))
         r2 = settle_transaction(self.pub, self._tx(self.tokens))
         for s in r2.values():
             self.assertEqual(s, "REJECTED_DUPLICATE")
 
-    # C
+
     def test_settlement_after_expiry(self):
         past = 1000000
         with patch("bank.issuance.time") as mt:
@@ -66,13 +66,13 @@ class TestSettlement(unittest.TestCase):
         for s in r.values():
             self.assertEqual(s, "SETTLED")
 
-    # D
+
     def test_merchant_balance(self):
         settle_transaction(self.pub, self._tx(self.tokens))
         expected = sum(t.denomination for t in self.tokens)
         self.assertEqual(get_balance("Merchant"), expected)
 
-    # E
+
     def test_cannot_settle_refunded(self):
         t = self.tokens[0]
         future = int(_time.time()) + 200000
@@ -82,7 +82,7 @@ class TestSettlement(unittest.TestCase):
         r = settle_transaction(self.pub, self._tx([t]))
         self.assertEqual(r[t.token_id], "REJECTED_REFUNDED")
 
-    # F
+
     def test_cannot_settle_spent(self):
         settle_transaction(self.pub, self._tx(self.tokens))
         r2 = settle_transaction(self.pub, self._tx(self.tokens))

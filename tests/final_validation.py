@@ -10,11 +10,11 @@ from typing import Any
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 unittest.mock.patch('getpass.getpass', return_value='sys_test_pass').start()
 
-from wallet import core as wallet_core, database as wallet_db  # type: ignore[import]
-from merchant import core as merch_core, database as merch_db, settlement as merch_settlement, transport as merch_transport  # type: ignore[import]
-from bank import database as bank_db, issuance as bank_issuance, keys as bank_keys, settlement as bank_settlement, refund as bank_refund  # type: ignore[import]
-from shared.models import Token, TransactionPackage  # type: ignore[import]
-from shared.crypto import canonical_hash, verify_signature  # type: ignore[import]
+from wallet import core as wallet_core, database as wallet_db  
+from merchant import core as merch_core, database as merch_db, settlement as merch_settlement, transport as merch_transport  
+from bank import database as bank_db, issuance as bank_issuance, keys as bank_keys, settlement as bank_settlement, refund as bank_refund  
+from shared.models import Token, TransactionPackage  
+from shared.crypto import canonical_hash, verify_signature  
 
 report = []
 
@@ -27,9 +27,9 @@ def run_validation():
     print("Starting Final Full System Validation...\n")
     
 
-    # STEP 1 - CLEAN ENVIRONMENT
 
-    from shared.paths import WALLET_DB_PATH, WALLET_SALT_PATH, MERCHANT_DB_PATH, BANK_DB_PATH, BANK_KEY_PATH, BANK_PUB_KEY_PATH  # type: ignore[import]
+
+    from shared.paths import WALLET_DB_PATH, WALLET_SALT_PATH, MERCHANT_DB_PATH, BANK_DB_PATH, BANK_KEY_PATH, BANK_PUB_KEY_PATH  
     files_to_remove = [WALLET_DB_PATH, WALLET_SALT_PATH, MERCHANT_DB_PATH, BANK_DB_PATH, BANK_KEY_PATH, BANK_PUB_KEY_PATH]
     for f in files_to_remove:
         try:
@@ -44,32 +44,32 @@ def run_validation():
     log_step("STEP 1", "Clean Environment", True, "Deleted DBs, .salt, keys, clean startup.")
     
 
-    # STEP 2 - WALLET INITIALIZATION
+
 
     wallet_db.init_db()
     buyer_id = wallet_core.get_or_create_identity("sys_test_pass", "SystemTestBuyer")
     key = wallet_core._get_master_key("sys_test_pass")
     buyer_name = wallet_db.load_config("buyer_display_name", key)
     
-    # Restart simulation (re-fetch)
+
     buyer_id_2 = wallet_core.get_or_create_identity("sys_test_pass")
     
     passed_s2 = (buyer_id == buyer_id_2) and (buyer_name == "SystemTestBuyer")
     log_step("STEP 2", "Wallet Initialization", passed_s2, f"ID1={buyer_id[:8]} ID2={buyer_id_2[:8]}, Name={buyer_name}")
 
-    # STEP 3 - MERCHANT INITIALIZATION
+
 
     merch_db.init_db()
     merch_db.save_config("merchant_id", "TestMerchant123")
     merch_id = merch_db.load_config("merchant_id")
     
-    # Restart
+
     merch_id_2 = merch_db.load_config("merchant_id")
     
     passed_s3 = (merch_id == merch_id_2) and len(merch_id) > 0
     log_step("STEP 3", "Merchant Initialization", passed_s3, f"MerchID={merch_id}")
 
-    # STEP 4 - PRELOAD TEST
+
 
     count = wallet_core.preload_funds("sys_test_pass", 500)
     info = wallet_core.get_balance_info("sys_test_pass")
@@ -82,14 +82,14 @@ def run_validation():
     passed_s4 = (count > 0 and info['total'] == 500 and unique_ids == count and bank_bal == 500)
     log_step("STEP 4", "Preload Test", passed_s4, f"Tokens={count}, Total={info['total']}, BankBal={bank_bal}, UniqueIDs={unique_ids}")
 
-    # STEP 5 - EXACT PAYMENT
+
 
     pay_amount = tokens[0].denomination
     
     packet_json = wallet_core.create_payment_packet("sys_test_pass", merch_id, pay_amount)
     pkt = json.loads(packet_json)
     
-    # Process
+
     res_s5 = merch_core.process_payment(packet_json, merch_id)
     
     with merch_db.get_db() as conn:
@@ -108,7 +108,7 @@ def run_validation():
     )
     log_step("STEP 5", "Exact Payment", passed_s5, f"Req={pay_amount}, Sum={tok_sum}, DBStatus={tx['status']}, WalletBal={info_post_s5['total']}")
 
-    # STEP 6 - OVERPAYMENT
+
 
     pay_amount_op = 10
     packet_json_op = wallet_core.create_payment_packet("sys_test_pass", merch_id, pay_amount_op)
@@ -127,9 +127,9 @@ def run_validation():
     )
     log_step("STEP 6", "Overpayment", passed_s6, f"Req={pay_amount_op}, TokSum={tok_sum_op}, ChangeDue={change_due}")
 
-    # STEP 7 - UNDERPAYMENT ATTEMPT
 
-    # Tamper the packet
+
+
     pkt_tampered = copy.deepcopy(pkt_op)
     pkt_tampered['requested_amount'] = tok_sum_op + 100
     pkt_tampered['transaction_id'] = "tampered-tx-123"
@@ -144,7 +144,7 @@ def run_validation():
         
     log_step("STEP 7", "Underpayment Attempt", passed_s7, evidence_s7)
 
-    # STEP 8 - REPLAY ATTACK
+
 
     res_s8 = merch_core.process_payment(packet_json, merch_id)
     with merch_db.get_db() as conn:
@@ -153,7 +153,7 @@ def run_validation():
     passed_s8 = (res_s8 is False and tx_cnt == 1)
     log_step("STEP 8", "Replay Attack", passed_s8, f"Res={res_s8}, TxCount={tx_cnt}")
 
-    # STEP 9 - SETTLEMENT TEST
+
 
     bank_db.create_account(merch_id, 0)
     settled_cnt = merch_settlement.settle_pending_transactions()
@@ -171,7 +171,7 @@ def run_validation():
     )
     log_step("STEP 9", "Settlement Test", passed_s9, f"Settled={settled_cnt}, MerchCredit={bank_merch_bal}, Expected={expected_credit}, TokStatus={tok_status}")
 
-    # STEP 10 - DOUBLE SETTLEMENT
+
 
     tokens_obj = [Token(**t) for t in pkt['tokens']]
     pkg = TransactionPackage(
@@ -192,7 +192,7 @@ def run_validation():
     passed_s10 = passed_s10 and (bank_merch_bal == bank_merch_bal_2)
     log_step("STEP 10", "Double Settlement", passed_s10, f"Res={res_s10}, BalDiff={bank_merch_bal_2 - bank_merch_bal}")
 
-    # STEP 11 - REFUND TEST
+
 
     wallet_core.preload_funds("sys_test_pass", 50)
     info = wallet_core.get_balance_info("sys_test_pass")
@@ -212,7 +212,7 @@ def run_validation():
     passed_s11 = (res_11a == "FAILED_NOT_EXPIRED" and res_11b == "REFUNDED" and bank_buyer_bal == expected_bal)
     log_step("STEP 11", "Refund Test", passed_s11, f"Pre={res_11a}, Post={res_11b}, BuyerBal={bank_buyer_bal}")
 
-    # STEP 12 - EXPIRY ENFORCEMENT
+
 
     wallet_core.preload_funds("sys_test_pass", 50)
     info = wallet_core.get_balance_info("sys_test_pass")
@@ -227,7 +227,7 @@ def run_validation():
         passed_s12 = all(t.status == 'EXPIRED' for t in info_future['tokens'] if t.token_id == exp_token.token_id)
         
         import uuid, dataclasses
-        from shared.crypto import derive_owner_hash  # type: ignore[import]
+        from shared.crypto import derive_owner_hash  
         pkt_exp = TransactionPackage(
             transaction_id=str(uuid.uuid4()),
             buyer_id_hash=derive_owner_hash(buyer_id),
@@ -251,7 +251,7 @@ def run_validation():
         
     log_step("STEP 12", "Expiry Enforcement", passed_s12, evidence_s12)
 
-    # STEP 13 - CRASH TEST
+
 
     class MockConnection:
         def __init__(self, real_conn):
@@ -291,7 +291,7 @@ def run_validation():
             
     log_step("STEP 13", "Crash Test", passed_s13, f"{evidence_s13}. TokenStatus={status_c}")
 
-    # STEP 14 - CANONICAL HASH CONSISTENCY
+
 
     t_hash = info_c['tokens'][0]
     t_dict = {
@@ -315,7 +315,7 @@ def run_validation():
     passed_s14 = (h1 == h2 and sig1 and sig2)
     log_step("STEP 14", "Canonical Hash Consistency", passed_s14, f"H1={h1.hex()[:8]}, H2={h2.hex()[:8]}, Sig1={sig1}, Sig2={sig2}")
 
-    # STEP 15 - STATIC PORT VALIDATION
+
 
     with open(merch_transport.__file__, "r") as f:
         content = f.read()

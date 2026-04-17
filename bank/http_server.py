@@ -5,16 +5,15 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import PlainTextResponse, JSONResponse
 
-from bank import keys as bank_keys  # type: ignore[import]
-from bank import database as bank_db  # type: ignore[import]
-from bank import issuance as bank_issuance  # type: ignore[import]
-from bank import settlement as bank_settlement  # type: ignore[import]
+from bank import keys as bank_keys  
+from bank import database as bank_db  
+from bank import issuance as bank_issuance  
+from bank import settlement as bank_settlement  
 
-from shared.models import Token, TransactionPackage  # type: ignore[import]
+from shared.models import Token, TransactionPackage  
 
 app = FastAPI(title="Offline Payment Bank API")
 
-# Simple API key check
 API_KEY = os.getenv("BANK_API_KEY")
 ALLOW_DEV = os.getenv("BANK_ALLOW_DEV", "false").lower() in ("1", "true", "yes")
 
@@ -28,7 +27,6 @@ async def _require_api_key(request: Request):
 
 @app.on_event("startup")
 def startup():
-    # Ensure DB and keys exist
     bank_db.init_db()
     bank_keys.load_or_generate_key()
 
@@ -41,12 +39,10 @@ def health():
 @app.get("/api/v1/public_key")
 async def public_key(request: Request):
     await _require_api_key(request)
-    # Return bank public key PEM
     pub_path = bank_keys.PUB_KEY_FILE if hasattr(bank_keys, 'PUB_KEY_FILE') else None
     try:
-        # Ensure key file exists
         pk = bank_keys.load_or_generate_key().public_key()
-        from cryptography.hazmat.primitives import serialization  # type: ignore[import]
+        from cryptography.hazmat.primitives import serialization  
         pem = pk.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)
         return PlainTextResponse(pem.decode('utf-8'))
     except Exception as e:
@@ -64,7 +60,6 @@ async def issue(request: Request):
         raise HTTPException(status_code=400, detail="buyer_id and integer amount are required")
 
     try:
-        # Ensure DB present
         bank_db.init_db()
         bank_key = bank_keys.load_or_generate_key()
         tokens = bank_issuance.issue_tokens(bank_key, buyer_id, amount)
@@ -81,7 +76,6 @@ async def settle(request: Request):
     await _require_api_key(request)
     payload = await request.json()
 
-    # Basic validation
     tx_id = payload.get("transaction_id")
     if not tx_id:
         raise HTTPException(status_code=400, detail="transaction_id required")
@@ -91,7 +85,6 @@ async def settle(request: Request):
         bank_key = bank_keys.load_or_generate_key()
         bank_pub = bank_key.public_key()
 
-        # Build TransactionPackage and Token objects
         tokens = [Token(**t) for t in payload.get("tokens", [])]
         pkg = TransactionPackage(
             transaction_id=payload.get("transaction_id"),

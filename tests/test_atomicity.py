@@ -6,14 +6,14 @@ import time as _time
 import threading
 from unittest.mock import patch
 
-from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
+from cryptography.hazmat.primitives.asymmetric import ec  
 
-from shared.models import TransactionPackage  # type: ignore[import]
-from shared.crypto import derive_owner_hash  # type: ignore[import]
-from bank.database import init_db, create_account  # type: ignore[import]
-from bank.issuance import issue_tokens  # type: ignore[import]
-from bank.settlement import settle_transaction  # type: ignore[import]
-from bank.refund import request_refund  # type: ignore[import]
+from shared.models import TransactionPackage  
+from shared.crypto import derive_owner_hash  
+from bank.database import init_db, create_account  
+from bank.issuance import issue_tokens  
+from bank.settlement import settle_transaction  
+from bank.refund import request_refund  
 
 class TestAtomicity(unittest.TestCase):
     def setUp(self):
@@ -43,7 +43,6 @@ class TestAtomicity(unittest.TestCase):
             buyer_display_name="Alice"
         )
 
-    # A — concurrent settle vs refund
     def test_concurrent_settle_and_refund(self):
         token = self.tokens[0]
         tx = self._tx([token])
@@ -71,7 +70,6 @@ class TestAtomicity(unittest.TestCase):
         self.assertEqual(success_count, 1,
                          f"Exactly one must succeed: settle={settled}, refund={refunded}")
 
-    # B — double settlement race
     def test_double_settlement_race(self):
         token = self.tokens[0]
         tx = self._tx([token])
@@ -89,7 +87,6 @@ class TestAtomicity(unittest.TestCase):
         self.assertEqual(sum(1 for r in results if r == "SETTLED"), 1,
                          f"Expected exactly 1 SETTLED: {results}")
 
-    # C — rowcount guard sequential
     def test_rowcount_guard(self):
         token = self.tokens[0]
         tx = self._tx([token])

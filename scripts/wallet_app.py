@@ -7,8 +7,8 @@ import getpass
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from wallet import core as wallet_core  # type: ignore[import]
-from wallet import transport as wallet_transport  # type: ignore[import]
+from wallet import core as wallet_core 
+from wallet import transport as wallet_transport 
 
 def print_separator():
     print("-" * 40)
@@ -18,7 +18,7 @@ def print_header(title: str):
     print(title)
     print_separator()
 
-from shared.paths import WALLET_SALT_PATH, WALLET_DB_PATH  # type: ignore[import]
+from shared.paths import WALLET_SALT_PATH, WALLET_DB_PATH 
 
 def check_wallet_exists() -> bool:
     return WALLET_SALT_PATH.exists() and WALLET_DB_PATH.exists()
@@ -48,8 +48,8 @@ def menu_view_identity():
     print_header("VIEW WALLET IDENTITY")
     pwd = getpass.getpass("Enter password: ")
     try:
-        from wallet import crypto as wallet_crypto  # type: ignore[import]
-        from wallet import database as wallet_db  # type: ignore[import]
+        from wallet import crypto as wallet_crypto 
+        from wallet import database as wallet_db 
         with open(WALLET_SALT_PATH, "rb") as f:
             salt = f.read()
         key, _ = wallet_crypto.derive_key(pwd, salt)
@@ -142,7 +142,7 @@ def menu_check_balance():
             return
 
         try:
-            from wallet import database as wallet_db  # type: ignore[import]
+            from wallet import database as wallet_db 
             wallet_db.expire_stale_tokens()
         except Exception:
             pass
@@ -274,7 +274,7 @@ def menu_view_tokens():
             return
 
         try:
-            from wallet import database as wallet_db  # type: ignore[import]
+            from wallet import database as wallet_db 
             wallet_db.expire_stale_tokens()
         except Exception:
             pass

@@ -1,17 +1,17 @@
 import json
 import socket
 import logging
-import cv2  # type: ignore[import]
-from pyzbar.pyzbar import decode as pyzbar_decode, ZBarSymbol  # type: ignore[import]
+import cv2  
+from pyzbar.pyzbar import decode as pyzbar_decode, ZBarSymbol  
 
 logging.basicConfig(level=logging.INFO, format='[TCP-Transport] %(message)s')
 logger = logging.getLogger(__name__)
 
-TIMEOUT_SECONDS = 5.0
+TIMEOUT_SECONDS =10.0
 BUFFER_SIZE = 4096
 
 def scan_qr() -> tuple[str, str, int]:
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1)
     if not cap.isOpened():
         raise RuntimeError("[TCP-Transport] Cannot open camera (device 0)")
 
@@ -29,11 +29,11 @@ def scan_qr() -> tuple[str, str, int]:
                 try:
                     data = json.loads(obj.data.decode('utf-8'))
                     if all(k in data for k in ("merchant_id", "ip", "port")):
-                        # Highlight QR bounding box
+
                         pts = obj.polygon
                         if len(pts) == 4:
                             pts_list = [(p.x, p.y) for p in pts]
-                            import numpy as np  # type: ignore[import]
+                            import numpy as np  
                             pts_np = np.array(pts_list, np.int32)
                             pts_np = pts_np.reshape((-1, 1, 2))
                             cv2.polylines(frame, [pts_np], True, (0, 255, 0), 3)
@@ -44,7 +44,7 @@ def scan_qr() -> tuple[str, str, int]:
             cv2.imshow("Wallet — Scan Merchant QR (q to cancel)", frame)
 
             if found_data:
-                # Brief pause to let user see the green highlight
+
                 cv2.waitKey(500)
                 break
 
@@ -55,11 +55,11 @@ def scan_qr() -> tuple[str, str, int]:
         cv2.destroyAllWindows()
 
     assert found_data is not None, "scan_qr: exited loop without data"
-    merchant_id: str = found_data["merchant_id"]  # type: ignore[index]
-    ip: str = found_data["ip"]  # type: ignore[index]
-    port: int = int(found_data["port"])  # type: ignore[index,arg-type]
+    merchant_id: str = found_data["merchant_id"]  
+    ip: str = found_data["ip"]  
+    port: int = int(found_data["port"])  
     logger.info(f"QR scanned — merchant: {merchant_id}  ip: {ip}  port: {port}")
-    return merchant_id, ip, port  # type: ignore[return-value]
+    return merchant_id, ip, port  
 
 def send_payment(packet_json: str, ip: str, port: int) -> bool:
     
@@ -71,14 +71,12 @@ def send_payment(packet_json: str, ip: str, port: int) -> bool:
         sock.connect((ip, port))
         logger.info("Connected.")
 
-        # Re-serialise to compact JSON — removes embedded newlines from
-        # wallet.core which uses json.dumps(packet, indent=2).
         compact = json.dumps(json.loads(packet_json), separators=(',', ':'))
         payload = compact.encode('utf-8') + b'\n'
         sock.sendall(payload)
         logger.info(f"Packet sent ({len(compact)} chars). Waiting for ACK...")
 
-        # Read ACK
+
         buffer = b""
         while b'\n' not in buffer:
             chunk = sock.recv(BUFFER_SIZE)

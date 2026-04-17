@@ -4,10 +4,10 @@ from typing import List
 
 import httpx
 
-from shared.models import Token  # type: ignore[import]
+from shared.models import Token
 
-from bank import keys as bank_keys  # type: ignore[import]
-from bank import issuance as bank_issuance  # type: ignore[import]
+from bank import keys as bank_keys 
+from bank import issuance as bank_issuance 
 
 
 def _parse_tokens(token_dicts: List[dict]) -> List[Token]:
@@ -62,17 +62,12 @@ def settle_transaction(transaction_package: dict) -> dict:
         resp.raise_for_status()
         return resp.json()
 
-    # Local mode: avoid circular import at module import time
-    from bank import settlement as bank_settlement  # type: ignore[import]
-    from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
+    from bank import settlement as bank_settlement 
+    from cryptography.hazmat.primitives.asymmetric import ec 
     bank_key = bank_keys.load_or_generate_key()
     bank_pub = bank_key.public_key()
 
-    # Convert dict to TransactionPackage-like object by calling settlement function
-    # bank.settlement.settle_transaction expects a TransactionPackage dataclass in codebase tests; we keep a simple dict-based contract here
-    # For compatibility we'll return the dict returned by the local function
-    # Build TransactionPackage object if needed
-    from shared.models import TransactionPackage, Token as SharedToken  # type: ignore[import]
+    from shared.models import TransactionPackage, Token as SharedToken 
     tokens = [SharedToken(**t) for t in transaction_package.get("tokens", [])]
     pkg = TransactionPackage(
         transaction_id=transaction_package.get("transaction_id"),

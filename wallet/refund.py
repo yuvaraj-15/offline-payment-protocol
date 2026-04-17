@@ -1,7 +1,7 @@
 import time
-from wallet import database  # type: ignore[import]
-from wallet.core import _get_master_key, get_or_create_identity  # type: ignore[import]
-from bank import refund as bank_refund  # type: ignore[import]
+from wallet import database  
+from wallet.core import _get_master_key, get_or_create_identity  
+from bank import refund as bank_refund  
 
 def request_refunds(password: str) -> int:
     key = _get_master_key(password)
@@ -19,7 +19,7 @@ def request_refunds(password: str) -> int:
                 status = bank_refund.request_refund(buyer_id, t.token_id)
                 if status == "REFUNDED":
                     expired_ids.append(t.token_id)
-                    refund_count += 1  # type: ignore[operator]
+                    refund_count += 1  
                 elif status == "FAILED_SPENT":
                     pass
             except Exception as e:

@@ -1,10 +1,10 @@
 import hashlib
-from cryptography.hazmat.primitives import hashes  # type: ignore[import]
-from cryptography.hazmat.primitives.asymmetric import ec, utils  # type: ignore[import]
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  # type: ignore[import]
-from cryptography.exceptions import InvalidSignature  # type: ignore[import]
+from cryptography.hazmat.primitives import hashes  
+from cryptography.hazmat.primitives.asymmetric import ec, utils  
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat  
+from cryptography.exceptions import InvalidSignature  
 
-from shared.models import Token  # type: ignore[import]
+from shared.models import Token  
 
 def canonical_hash(token: Token) -> bytes:
     raw_string = (

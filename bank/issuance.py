@@ -3,12 +3,12 @@ import time
 import sqlite3
 from typing import List
 
-from shared.models import Token  # type: ignore[import]
-from shared.constants import ISSUER_ID, ALLOWED_DENOMINATIONS, EXPIRY_SECONDS  # type: ignore[import]
-from shared.crypto import sign_data, canonical_hash, derive_owner_hash  # type: ignore[import]
-from bank.database import get_db_connection  # type: ignore[import]
+from shared.models import Token  
+from shared.constants import ISSUER_ID, ALLOWED_DENOMINATIONS, EXPIRY_SECONDS  
+from shared.crypto import sign_data, canonical_hash, derive_owner_hash  
+from bank.database import get_db_connection  
 
-from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
+from cryptography.hazmat.primitives.asymmetric import ec  
 
 def issue_tokens(
     private_key: "ec.EllipticCurvePrivateKey", buyer_id: str, amount: int
@@ -20,15 +20,14 @@ def issue_tokens(
 
     owner_hash = derive_owner_hash(buyer_id)
 
-    # Greedy denomination breakdown
     remaining = amount
     denominations: List[int] = sorted(ALLOWED_DENOMINATIONS, reverse=True)
 
     token_denoms: List[int] = []
     for d in denominations:
-        while remaining >= d:  # type: ignore[operator]
+        while remaining >= d:  
             token_denoms.append(d)
-            remaining -= d  # type: ignore[operator]
+            remaining -= d  
 
     if remaining != 0:
         raise ValueError("Cannot satisfy amount with available denominations.")
@@ -36,7 +35,6 @@ def issue_tokens(
     now = int(time.time())
     expiry = now + EXPIRY_SECONDS
 
-    # Build and sign tokens
     generated_tokens: List[Token] = []
 
     for d in token_denoms:
@@ -56,7 +54,6 @@ def issue_tokens(
 
         generated_tokens.append(t)
 
-    # Atomic DB Transaction
     with get_db_connection() as conn:
         cursor = conn.cursor()
         conn.execute("BEGIN IMMEDIATE")

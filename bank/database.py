@@ -2,7 +2,7 @@ import sqlite3
 import os
 from contextlib import contextmanager
 
-from shared.paths import BANK_DB_PATH  # type: ignore[import]
+from shared.paths import BANK_DB_PATH  
 
 DB_PATH = str(BANK_DB_PATH)
 
@@ -18,7 +18,6 @@ def init_db(reset: bool = False):
         cursor.execute("DROP TABLE IF EXISTS tokens;")
         cursor.execute("DROP TABLE IF EXISTS accounts;")
 
-    # Accounts Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS accounts (
         user_id TEXT PRIMARY KEY,
@@ -26,7 +25,6 @@ def init_db(reset: bool = False):
     );
     """)
 
-    # Tokens Table
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS tokens (
         token_id TEXT PRIMARY KEY,

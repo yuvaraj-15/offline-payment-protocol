@@ -5,14 +5,14 @@ import os
 import time as _time
 from unittest.mock import patch
 
-from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
+from cryptography.hazmat.primitives.asymmetric import ec  
 
-from shared.models import TransactionPackage  # type: ignore[import]
-from shared.crypto import derive_owner_hash  # type: ignore[import]
-from bank.database import init_db, create_account, get_balance  # type: ignore[import]
-from bank.issuance import issue_tokens  # type: ignore[import]
-from bank.settlement import settle_transaction  # type: ignore[import]
-from bank.refund import request_refund  # type: ignore[import]
+from shared.models import TransactionPackage  
+from shared.crypto import derive_owner_hash  
+from bank.database import init_db, create_account, get_balance  
+from bank.issuance import issue_tokens  
+from bank.settlement import settle_transaction  
+from bank.refund import request_refund  
 
 class TestRefund(unittest.TestCase):
     def setUp(self):
@@ -32,13 +32,13 @@ class TestRefund(unittest.TestCase):
         os.close(self.db_fd)
         os.unlink(self.db_path)
 
-    # A
+
     def test_refund_before_expiry_fails(self):
         self.assertEqual(
             request_refund("Alice", self.tokens[0].token_id), "FAILED_NOT_EXPIRED"
         )
 
-    # B
+
     def test_refund_after_expiry_succeeds(self):
         with patch("bank.refund.time") as mt:
             mt.time.return_value = self.future
@@ -46,7 +46,7 @@ class TestRefund(unittest.TestCase):
                 request_refund("Alice", self.tokens[0].token_id), "REFUNDED"
             )
 
-    # C
+
     def test_refund_spent_fails(self):
         tx = TransactionPackage(
             transaction_id="tx-1",
@@ -64,7 +64,7 @@ class TestRefund(unittest.TestCase):
                 request_refund("Alice", self.tokens[0].token_id), "FAILED_SPENT"
             )
 
-    # D
+
     def test_refund_already_refunded_fails(self):
         with patch("bank.refund.time") as mt:
             mt.time.return_value = self.future
@@ -73,7 +73,7 @@ class TestRefund(unittest.TestCase):
                 request_refund("Alice", self.tokens[0].token_id), "FAILED_REFUNDED"
             )
 
-    # E
+
     def test_buyer_balance_updates(self):
         before = get_balance("Alice")
         denom = self.tokens[0].denomination

@@ -6,14 +6,14 @@ import time as _time
 import random
 from unittest.mock import patch
 
-from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
+from cryptography.hazmat.primitives.asymmetric import ec  
 
-from shared.models import TransactionPackage  # type: ignore[import]
-from shared.crypto import derive_owner_hash  # type: ignore[import]
-from bank.database import init_db, create_account, get_balance, get_db_connection  # type: ignore[import]
-from bank.issuance import issue_tokens  # type: ignore[import]
-from bank.settlement import settle_transaction  # type: ignore[import]
-from bank.refund import request_refund  # type: ignore[import]
+from shared.models import TransactionPackage  
+from shared.crypto import derive_owner_hash  
+from bank.database import init_db, create_account, get_balance, get_db_connection  
+from bank.issuance import issue_tokens  
+from bank.settlement import settle_transaction  
+from bank.refund import request_refund  
 
 class TestIntegrity(unittest.TestCase):
     def setUp(self):
@@ -48,7 +48,7 @@ class TestIntegrity(unittest.TestCase):
             ).fetchall()
             self.assertEqual(len(negs), 0, f"Negatives: {negs}")
 
-    # A
+
     def test_no_double_transition(self):
         create_account("Alice", 1000)
         create_account("M", 0)
@@ -65,14 +65,14 @@ class TestIntegrity(unittest.TestCase):
             mt.time.return_value = future
             self.assertNotEqual(request_refund("Alice", t.token_id), "REFUNDED")
 
-    # B
+
     def test_no_negative_balances(self):
         create_account("Alice", 100)
         with self.assertRaises(ValueError):
             issue_tokens(self.key, "Alice", 200)
         self._assert_no_negatives()
 
-    # C
+
     def test_money_invariant(self):
         create_account("Alice", 1000)
         create_account("M", 0)
@@ -93,7 +93,7 @@ class TestIntegrity(unittest.TestCase):
             request_refund("Alice", tokens[2].token_id)
         self.assertEqual(initial, self._total_balances() + self._issued_value())
 
-    # D
+
     def test_stress(self):
         rng = random.Random(42)
         create_account("Stress", 10000)

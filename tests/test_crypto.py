@@ -3,10 +3,10 @@ import unittest
 import hashlib
 from copy import deepcopy
 
-from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
+from cryptography.hazmat.primitives.asymmetric import ec  
 
-from shared.models import Token  # type: ignore[import]
-from shared.crypto import canonical_hash, sign_data, verify_signature  # type: ignore[import]
+from shared.models import Token  
+from shared.crypto import canonical_hash, sign_data, verify_signature  
 
 def _fixed_token():
     return Token(
@@ -19,7 +19,7 @@ def _fixed_token():
         signature="",
     )
 
-# Pre-compute expected digest
+
 _RAW = "test-token-001RuralBank01abc123hash10017000000001700172800"
 _EXPECTED_HEX = hashlib.sha256(_RAW.encode("utf-8")).hexdigest()
 

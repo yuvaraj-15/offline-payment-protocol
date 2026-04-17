@@ -1,6 +1,6 @@
 import time
-from shared.crypto import derive_owner_hash  # type: ignore[import]
-from bank.database import get_db_connection  # type: ignore[import]
+from shared.crypto import derive_owner_hash  
+from bank.database import get_db_connection  
 
 def request_refund(buyer_id: str, token_id: str) -> str:
 
@@ -47,7 +47,6 @@ def request_refund(buyer_id: str, token_id: str) -> str:
             )
 
             if cursor.rowcount != 1:
-                # Another operation beat us (concurrent settlement)
                 conn.rollback()
                 return "FAILED_CONCURRENT_MODIFICATION"
 

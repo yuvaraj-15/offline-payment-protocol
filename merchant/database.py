@@ -3,7 +3,7 @@ import json
 from contextlib import contextmanager
 from typing import Optional
 
-from shared.paths import MERCHANT_DB_PATH  # type: ignore[import]
+from shared.paths import MERCHANT_DB_PATH  
 
 DB_PATH = str(MERCHANT_DB_PATH)
 
@@ -25,7 +25,6 @@ def init_db(reset: bool = False):
             conn.execute("DROP TABLE IF EXISTS received_tokens")
             conn.execute("DROP TABLE IF EXISTS transactions")
 
-        # Transaction Log
         conn.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
                 transaction_id TEXT PRIMARY KEY,
@@ -49,7 +48,6 @@ def init_db(reset: bool = False):
         except sqlite3.OperationalError:
             pass
 
-        # Token Store
         conn.execute("""
             CREATE TABLE IF NOT EXISTS received_tokens (
                 token_id TEXT PRIMARY KEY,
@@ -93,14 +91,12 @@ def save_transaction(packet: dict) -> bool:
     
     with get_db() as conn:
         try:
-            # 1. Insert Transaction Record
             conn.execute("""
                 INSERT INTO transactions 
                 (transaction_id, buyer_id_hash, merchant_id, total_amount, timestamp, requested_amount, buyer_display_name)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (tx_id, buyer_hash, m_id, total, ts, req_amount, buyer_name))
             
-            # 2. Insert Tokens
             for t in tokens:
                 conn.execute("""
                     INSERT INTO received_tokens
@@ -112,7 +108,6 @@ def save_transaction(packet: dict) -> bool:
             return True
             
         except sqlite3.IntegrityError:
-            # Duplicate ID detected
             conn.rollback()
             return False
         except sqlite3.Error:

@@ -1,9 +1,9 @@
 import os
 
-from cryptography.hazmat.primitives.asymmetric import ec  # type: ignore[import]
-from cryptography.hazmat.primitives import serialization  # type: ignore[import]
+from cryptography.hazmat.primitives.asymmetric import ec  
+from cryptography.hazmat.primitives import serialization  
 
-from shared.paths import BANK_KEY_PATH, BANK_PUB_KEY_PATH  # type: ignore[import]
+from shared.paths import BANK_KEY_PATH, BANK_PUB_KEY_PATH  
 
 KEY_FILE = str(BANK_KEY_PATH)
 PUB_KEY_FILE = str(BANK_PUB_KEY_PATH)

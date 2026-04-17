@@ -10,9 +10,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 
 logging.getLogger().setLevel(logging.CRITICAL)
 
-from merchant import transport as merch_transport  # type: ignore[import]
-from merchant import database as merch_db  # type: ignore[import]
-from merchant import settlement as merch_settlement  # type: ignore[import]
+from merchant import transport as merch_transport 
+from merchant import database as merch_db 
+from merchant import settlement as merch_settlement 
 
 _poller_started = False
 
@@ -57,7 +57,7 @@ def poll_new_transactions():
         pass
 
     while True:
-        time.sleep(1.0) # Check every second
+        time.sleep(1.0)
         try:
             with get_db() as conn:
                 rows = conn.execute(
@@ -72,7 +72,6 @@ def poll_new_transactions():
                     for r in rows:
                         tx_id = r["transaction_id"]
                         if tx_id in new_txs:
-                            # Found a new transaction. Need to count its tokens.
                             tok_row = conn.execute(
                                 "SELECT COUNT(*) FROM received_tokens WHERE transaction_id=?", 
                                 (tx_id,)

@@ -6,12 +6,12 @@ logging.basicConfig(level=logging.INFO)
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from wallet.database import init_db as w_init  # type: ignore[import]
-from bank.database import init_db as b_init  # type: ignore[import]
+from wallet.database import init_db as w_init  
+from bank.database import init_db as b_init  
 
 def reset_wallet():
     print("Resetting Wallet Identity & Database...")
-    from shared.paths import WALLET_SALT_PATH  # type: ignore[import]
+    from shared.paths import WALLET_SALT_PATH  
     if WALLET_SALT_PATH.exists():
         os.remove(WALLET_SALT_PATH)
         print(" -> Deleted wallet/.salt")

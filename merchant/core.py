@@ -3,15 +3,15 @@ import json
 import os
 from typing import Any
 
-from cryptography.hazmat.primitives import serialization  # type: ignore[import]
+from cryptography.hazmat.primitives import serialization  
 
-from shared.models import Token, TransactionPackage  # type: ignore[import]
-from shared.crypto import canonical_hash, verify_signature  # type: ignore[import]
-from merchant import database  # type: ignore[import]
+from shared.models import Token, TransactionPackage  
+from shared.crypto import canonical_hash, verify_signature  
+from merchant import database  
 
 def _load_bank_public_key() -> Any:
     
-    from shared.paths import BANK_PUB_KEY_PATH  # type: ignore[import]
+    from shared.paths import BANK_PUB_KEY_PATH  
     path = str(BANK_PUB_KEY_PATH)
     if not os.path.exists(path):
         raise RuntimeError("Bank Public Key not found. Bank module must run first.")
@@ -53,19 +53,15 @@ def verify_packet(packet_json: str, merchant_id: str) -> dict:
         except TypeError:
              raise ValueError("Malformed token structure")
              
-        # 1. Ownership Check
         if token.owner_id_hash != buyer_hash:
             raise ValueError(f"Token {token.token_id} belongs to different owner")
             
-        # 2. Timestamp Bound: issue_ts must be <= tx_ts
         if token.issue_timestamp > tx_ts:
             raise ValueError("Transaction timestamp earlier than token issuance")
 
-        # 3. Expiry Check (Strict >=)
         if token.expiry_timestamp < tx_ts:
             raise ValueError(f"Token {token.token_id} expired at {token.expiry_timestamp}")
             
-        # 3. Signature Verification
         msg_hash = canonical_hash(token)
         
         if not verify_signature(bank_pub, msg_hash, token.signature):
@@ -80,10 +76,8 @@ def verify_packet(packet_json: str, merchant_id: str) -> dict:
 
 def process_payment(packet_json: str, merchant_id: str) -> bool:
     
-    # 1. Verify
     packet = verify_packet(packet_json, merchant_id)
     
-    # 2. Store Atomic
     committed = database.save_transaction(packet)
     
     if not committed:

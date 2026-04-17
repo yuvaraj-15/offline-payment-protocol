@@ -4,10 +4,10 @@ import time
 from typing import List, Optional
 from contextlib import contextmanager
 
-from shared.models import Token  # type: ignore[import]
-from wallet.crypto import encrypt_blob, decrypt_blob  # type: ignore[import]
+from shared.models import Token
+from wallet.crypto import encrypt_blob, decrypt_blob  
 
-from shared.paths import WALLET_DB_PATH  # type: ignore[import]
+from shared.paths import WALLET_DB_PATH  
 
 DB_PATH = str(WALLET_DB_PATH)
 

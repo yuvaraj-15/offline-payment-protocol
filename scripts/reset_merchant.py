@@ -6,7 +6,7 @@ logging.basicConfig(level=logging.INFO)
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from merchant.database import init_db as m_init  # type: ignore[import]
+from merchant.database import init_db as m_init 
 
 def reset_merchant():
     print("Resetting Merchant Configuration & Database...")

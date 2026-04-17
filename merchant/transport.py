@@ -13,7 +13,7 @@ from merchant.database import init_db
 logging.basicConfig(level=logging.INFO, format='[TCP-Transport] %(message)s')
 logger = logging.getLogger(__name__)
 
-TIMEOUT_SECONDS = 5.0
+TIMEOUT_SECONDS = 10.0
 BUFFER_SIZE = 4096
 
 
@@ -59,7 +59,7 @@ def generate_qr_image(data_str):
 def build_qr_payload(merchant_id):
 
     lan_ip = get_lan_ip()
-    port = 5050
+    port = 6000
 
     payload = json.dumps({
         "merchant_id": merchant_id,

@@ -6,18 +6,17 @@ DO NOT MODIFY CODE — ANALYSIS AND REPORTING ONLY.
 import os, sys, json, time, copy, socket, threading, traceback, hashlib
 os.environ["MERCHANT_TEST_LOOPBACK"] = "1"
 
-# ── Path setup ────────────────────────────────────────────────────────────────
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from bank import database as bank_db, issuance as bank_issuance  # type: ignore[import]
-from bank import keys as bank_main  # type: ignore[import]
-from bank import settlement as bank_settlement, refund as bank_refund  # type: ignore[import]
-from merchant import core as merch_core, database as merch_db  # type: ignore[import]
-from wallet import core as wallet_core, database as wallet_db  # type: ignore[import]
-from shared import crypto as shared_crypto, models as shared_models  # type: ignore[import]
-from shared.models import Token, TransactionPackage  # type: ignore[import]
+from bank import database as bank_db, issuance as bank_issuance  
+from bank import keys as bank_main  
+from bank import settlement as bank_settlement, refund as bank_refund  
+from merchant import core as merch_core, database as merch_db  
+from wallet import core as wallet_core, database as wallet_db  
+from shared import crypto as shared_crypto, models as shared_models  
+from shared.models import Token, TransactionPackage  
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
 results = []
 
 def r(section, name, passed, detail=""):
@@ -32,7 +31,7 @@ def clean_all():
     wallet_db.init_db(reset=True)
     merch_db.init_db(reset=True)
     bank_db.init_db(reset=True)
-    from shared.paths import WALLET_SALT_PATH, WALLET_DB_PATH  # type: ignore[import]
+    from shared.paths import WALLET_SALT_PATH, WALLET_DB_PATH  
     for f in [WALLET_SALT_PATH, WALLET_DB_PATH]:
         if os.path.exists(f): os.remove(f)
 
@@ -45,21 +44,18 @@ def preload(amount=500, pwd="sweep_pass"):
         pass
     return wallet_core.preload_funds(pwd, amount)
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SECTION A — WALLET BEHAVIOUR
-# ═══════════════════════════════════════════════════════════════════════════════
 print("\n" + "="*60)
 print("SECTION A — WALLET BEHAVIOUR")
 print("="*60)
 
-# ── A1: Fresh preload ──────────────────────────────────────────────────────────
+
 clean_all()
 try:
     n = preload(500)
     wallet_db.expire_stale_tokens()
     tokens = wallet_db.list_unspent_tokens(wallet_core._get_master_key("sweep_pass"))
     total = sum(t.denomination for t in tokens)
-    from shared.constants import ALLOWED_DENOMINATIONS  # type: ignore[import]
+    from shared.constants import ALLOWED_DENOMINATIONS  
     denom_ok = all(t.denomination in ALLOWED_DENOMINATIONS for t in tokens)
     r("A1", "Correct token count returned", n > 0, f"issued={n}")
     r("A1", "All denominations valid", denom_ok)
@@ -67,7 +63,7 @@ try:
 except Exception as e:
     r("A1", "Fresh preload", False, str(e))
 
-# ── A2: Double preload — no collision ──────────────────────────────────────────
+
 try:
     n2 = preload(200)
     wallet_db.expire_stale_tokens()
@@ -81,18 +77,16 @@ try:
 except Exception as e:
     r("A2", "Double preload", False, str(e))
 
-# ── A3: Wrong password ─────────────────────────────────────────────────────────
+
 try:
-    # Use a fresh identity so wrong key decryption is detectable
+
     clean_all()
     preload(100, "correct_pass")
-    # Attempt payment using wrong password — _get_master_key will derive wrong key
-    # list_unspent_tokens will raise ValueError on decrypt failure
     try:
         wallet_core.create_payment_packet("wrong_pass", "SomeMerch", 100)
         r("A3", "Wrong password rejected before payment", False, "No error raised")
     except (ValueError, Exception):
-        # Check tokens are still UNSPENT (not SPENT)
+
         import sqlite3
         conn = sqlite3.connect(wallet_db.DB_PATH)
         row = conn.execute("SELECT COUNT(*) FROM tokens WHERE status='SPENT'").fetchone()
@@ -104,16 +98,16 @@ try:
 except Exception as e:
     r("A3", "Wrong password test", False, str(e))
 
-# ── A4: Expiry sweep ───────────────────────────────────────────────────────────
+
 try:
     clean_all()
     orig_expiry = bank_issuance.EXPIRY_SECONDS
-    bank_issuance.EXPIRY_SECONDS = 1  # 1-second expiry
+    bank_issuance.EXPIRY_SECONDS = 1 
     orig_buffer = wallet_core.EXPIRY_BUFFER_SECONDS
     wallet_core.EXPIRY_BUFFER_SECONDS = 0
 
     preload(100, "sweep_pass")
-    time.sleep(2)  # let tokens expire
+    time.sleep(2) 
 
     wallet_db.expire_stale_tokens()
     import sqlite3
@@ -136,7 +130,7 @@ try:
 except Exception as e:
     r("A4", "Expiry sweep", False, str(e))
 
-# ── A5: Network failure after marking SPENT ────────────────────────────────────
+
 try:
     clean_all()
     preload(100, "sweep_pass")
@@ -144,25 +138,22 @@ try:
     all_t = wallet_db.list_unspent_tokens(wallet_core._get_master_key("sweep_pass"))
     ids = [t.token_id for t in all_t[:1]]
 
-    # Manually mark spent (simulating what create_payment_packet does)
+
     ok = wallet_db.mark_tokens_spent(ids)
     r("A5", "Tokens successfully marked SPENT before send", ok)
 
-    # Now try to use them again
+
     wallet_db.expire_stale_tokens()
     still_unspent = wallet_db.list_unspent_tokens(wallet_core._get_master_key("sweep_pass"))
     still_ids = {t.token_id for t in still_unspent}
     r("A5", "SPENT tokens not available in UNSPENT list", all(i not in still_ids for i in ids))
 
-    # Try marking them spent again — should return False (no UNSPENT match)
+
     ok2 = wallet_db.mark_tokens_spent(ids)
     r("A5", "mark_tokens_spent returns False for already-SPENT tokens", not ok2)
 except Exception as e:
     r("A5", "Network failure / token reuse", False, str(e))
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SECTION B — MERCHANT VERIFICATION
-# ═══════════════════════════════════════════════════════════════════════════════
 print("\n" + "="*60)
 print("SECTION B — MERCHANT VERIFICATION")
 print("="*60)
@@ -174,7 +165,7 @@ def make_packet(amount=100, merchant_id=MERCH_ID, pwd="sweep_pass"):
     preload(amount, pwd)
     return wallet_core.create_payment_packet(pwd, merchant_id, amount)
 
-# ── B1: Normal payment ─────────────────────────────────────────────────────────
+
 try:
     pkt_json = make_packet()
     merch_db.init_db(reset=True)
@@ -191,7 +182,7 @@ try:
 except Exception as e:
     r("B1", "Normal payment", False, str(e))
 
-# ── B2: Replay same packet ─────────────────────────────────────────────────────
+
 try:
     pkt_json = make_packet(100)
     merch_db.init_db(reset=True)
@@ -208,7 +199,7 @@ try:
 except Exception as e:
     r("B2", "Replay test", False, str(e))
 
-# ── B3: Merchant ID mismatch ───────────────────────────────────────────────────
+
 try:
     pkt_json = make_packet(100, "CorrectMerchant")
     pkt = json.loads(pkt_json)
@@ -222,11 +213,11 @@ try:
 except Exception as e:
     r("B3", "Merchant ID mismatch", False, str(e))
 
-# ── B4: Pre-issuance timestamp ─────────────────────────────────────────────────
+
 try:
     pkt_json = make_packet(100)
     pkt = json.loads(pkt_json)
-    # Set tx timestamp before any token was issued
+
     pkt["transaction_timestamp"] = pkt["tokens"][0]["issue_timestamp"] - 1
     merch_db.init_db(reset=True)
     try:
@@ -237,11 +228,11 @@ try:
 except Exception as e:
     r("B4", "Pre-issuance timestamp", False, str(e))
 
-# ── B5: Expired token ──────────────────────────────────────────────────────────
+
 try:
     pkt_json = make_packet(100)
     pkt = json.loads(pkt_json)
-    # Set tx timestamp beyond expiry
+
     pkt["transaction_timestamp"] = pkt["tokens"][0]["expiry_timestamp"] + 100
     merch_db.init_db(reset=True)
     try:
@@ -252,9 +243,6 @@ try:
 except Exception as e:
     r("B5", "Expired token", False, str(e))
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SECTION C — BANK BEHAVIOUR
-# ═══════════════════════════════════════════════════════════════════════════════
 print("\n" + "="*60)
 print("SECTION C — BANK BEHAVIOUR")
 print("="*60)
@@ -280,7 +268,7 @@ def make_transaction_package(amount=100, merchant_id="BankMerch", buyer_id="Bank
     )
     return bank_key.public_key(), pkg
 
-# ── C1: Settlement success ─────────────────────────────────────────────────────
+
 try:
     pub_key, pkg = make_transaction_package(100)
     try: bank_db.create_account("BankMerch", 0)
@@ -302,25 +290,25 @@ try:
 except Exception as e:
     r("C1", "Settlement success", False, traceback.format_exc())
 
-# ── C2: Duplicate settlement ───────────────────────────────────────────────────
+
 try:
     pub_key, pkg = make_transaction_package(100)
     try: bank_db.create_account("BankMerch", 0)
     except Exception: pass
-    bank_settlement.settle_transaction(pub_key, pkg)  # first
-    res2 = bank_settlement.settle_transaction(pub_key, pkg)  # second
+    bank_settlement.settle_transaction(pub_key, pkg)  
+    res2 = bank_settlement.settle_transaction(pub_key, pkg)  
     all_rejected = all(v in ("REJECTED_DUPLICATE", "ROLLED_BACK") for v in res2.values())
     r("C2", "Re-settlement fully rejected", all_rejected, str(res2))
 except Exception as e:
     r("C2", "Duplicate settlement", False, str(e))
 
-# ── C3: Partial package corruption (one already SPENT) ─────────────────────────
+
 try:
     pub_key, pkg = make_transaction_package(200)
     try: bank_db.create_account("BankMerch", 0)
     except Exception: pass
 
-    # Manually SPEND the first token
+
     import sqlite3
     conn = sqlite3.connect(bank_db.DB_PATH)
     conn.execute(
@@ -330,12 +318,12 @@ try:
     conn.commit()
     conn.close()
 
-    # Now settle — first token is already SPENT, should cause full rollback
+
     res = bank_settlement.settle_transaction(pub_key, pkg)
     any_settled = any(v == "SETTLED" for v in res.values())
     r("C3", "Full rollback on partial corruption (no SETTLED tokens)", not any_settled, str(res))
 
-    # Confirm other tokens are NOT SPENT (rollback worked)
+
     conn = sqlite3.connect(bank_db.DB_PATH)
     for t in pkg.tokens[1:]:
         row = conn.execute("SELECT status FROM tokens WHERE token_id=?", (t.token_id,)).fetchone()
@@ -346,7 +334,7 @@ try:
 except Exception as e:
     r("C3", "Partial package corruption", False, traceback.format_exc())
 
-# ── C4: Refund logic ───────────────────────────────────────────────────────────
+
 try:
     bank_db.init_db(reset=True)
     buyer_id = "RefundBuyer"
@@ -359,14 +347,14 @@ try:
     tokens = bank_issuance.issue_tokens(bank_key, buyer_id, 100)
     bank_issuance.EXPIRY_SECONDS = orig_expiry
 
-    # Before expiry → should FAIL
+
     res_before = bank_refund.request_refund(buyer_id, tokens[0].token_id)
     r("C4", "Refund before expiry rejected", res_before == "FAILED_NOT_EXPIRED",
       f"result={res_before}")
 
-    time.sleep(2)  # expire
+    time.sleep(2)  
 
-    # After expiry → should REFUND
+
     import sqlite3
     conn = sqlite3.connect(bank_db.DB_PATH)
     bal_before = conn.execute("SELECT balance FROM accounts WHERE user_id=?", (buyer_id,)).fetchone()[0]
@@ -386,15 +374,12 @@ try:
 except Exception as e:
     r("C4", "Refund logic", False, traceback.format_exc())
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SECTION D — TRANSPORT
-# ═══════════════════════════════════════════════════════════════════════════════
 print("\n" + "="*60)
 print("SECTION D — TRANSPORT")
 print("="*60)
 
-from merchant import transport as merch_transport  # type: ignore[import]
-from wallet import transport as wallet_transport  # type: ignore[import]
+from merchant import transport as merch_transport  
+from wallet import transport as wallet_transport  
 
 def start_merch_server(mid="TransMerch"):
     """Start merchant in headless loopback mode, return (ip, port, stop_event)."""
@@ -402,7 +387,7 @@ def start_merch_server(mid="TransMerch"):
     merch_db.init_db(reset=True)
     try: bank_db.create_account("TransBuyer", 2000)
     except Exception: pass
-    # Preload wallet so packet is ready
+
     clean_all()
     preload(200, "sweep_pass")
 
@@ -432,12 +417,11 @@ def start_merch_server(mid="TransMerch"):
     threading.Thread(target=loop, daemon=True).start()
     return "127.0.0.1", port, stop
 
-# -- D1 & D2: Normal TCP / Loopback
+
 try:
-    # Preload BEFORE starting server (start_merch_server calls clean_all)
+
     ip, port, stop = start_merch_server("TransMerch")
-    # start_merch_server already called clean_all + preload(200)
-    # The wallet tokens are in UNSPENT state — create the packet now
+
     time.sleep(0.2)
     pkt_json = wallet_core.create_payment_packet("sweep_pass", "TransMerch", 100)
     pkt_compact = json.dumps(json.loads(pkt_json))
@@ -453,9 +437,9 @@ try:
 except Exception as e:
     r("D1/D2", "Normal TCP/Loopback", False, str(e))
 
-# ── D3: Connect timeout ────────────────────────────────────────────────────────
+
 try:
-    # Port 19999 is not listening — should timeout/refuse
+
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.5)
         try:
@@ -466,7 +450,7 @@ try:
 except Exception as e:
     r("D3", "Connect timeout", False, str(e))
 
-# ── D4: Malformed JSON ─────────────────────────────────────────────────────────
+
 try:
     ip4, port4, stop4 = start_merch_server("MalMerch")
     time.sleep(0.2)
@@ -480,13 +464,13 @@ try:
 except Exception as e:
     r("D4", "Malformed JSON", False, str(e))
 
-# ── D5: Missing newline delimiter ──────────────────────────────────────────────
+
 try:
     ip5, port5, stop5 = start_merch_server("NLMerch")
     time.sleep(0.2)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((ip5, port5))
-        # Send without newline, then close — server should timeout or see disconnect
+
         s.sendall(b'{"incomplete": true}')
         s.settimeout(0.3)
         try:
@@ -498,14 +482,11 @@ try:
 except Exception as e:
     r("D5", "Missing newline delimiter", False, str(e))
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# FINAL INVARIANT CHECKS
-# ═══════════════════════════════════════════════════════════════════════════════
 print("\n" + "="*60)
 print("FINAL INVARIANT CHECKS")
 print("="*60)
 
-# canonical_hash unchanged / deterministic
+
 try:
     bank_db.init_db(reset=True)
     try: bank_db.create_account("HashBuyer", 200)
@@ -517,7 +498,7 @@ try:
     h2 = shared_crypto.canonical_hash(t0)
     r("F1", "canonical_hash is deterministic", h1 == h2)
 
-    # Confirm signature field is excluded from hash
+
     import dataclasses
     t_nosig = dataclasses.replace(t0, signature="")
     h_nosig = shared_crypto.canonical_hash(t_nosig)
@@ -525,7 +506,7 @@ try:
 except Exception as e:
     r("F1", "canonical_hash", False, str(e))
 
-# Signature verify deterministic
+
 try:
     pub = bank_main.load_or_generate_key().public_key()
     msg = shared_crypto.canonical_hash(tokens_h[0])
@@ -538,7 +519,7 @@ try:
 except Exception as e:
     r("F2", "Signature verification", False, str(e))
 
-# No global merchant_id remains
+
 try:
     import importlib, inspect
     src = inspect.getsource(merch_core)
@@ -548,14 +529,14 @@ try:
 except Exception as e:
     r("F3", "Global merchant_id check", False, str(e))
 
-# No silent state transitions (DB constraints)
+
 try:
     clean_all()
     preload(100, "sweep_pass")
     wallet_db.expire_stale_tokens()
     ts = wallet_db.list_unspent_tokens(wallet_core._get_master_key("sweep_pass"))
 
-    # Try to force-mark EXPIRED directly via DB
+
     import sqlite3
     conn = sqlite3.connect(wallet_db.DB_PATH)
     try:
@@ -570,9 +551,6 @@ try:
 except Exception as e:
     r("F4", "Silent state transition check", False, str(e))
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SUMMARY REPORT
-# ═══════════════════════════════════════════════════════════════════════════════
 print("\n" + "="*60)
 print("REGRESSION SWEEP — SUMMARY")
 print("="*60)
